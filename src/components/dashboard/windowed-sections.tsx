@@ -7,6 +7,7 @@ import { HoldingWeightChart } from "@/components/charts/holding-weight-chart";
 import { MonthlyPnLChart } from "@/components/charts/monthly-pnl-chart";
 import { NetWorthChart } from "@/components/charts/net-worth-chart";
 import { ChartSection } from "@/components/dashboard/chart-section";
+import { ForecastSection } from "@/components/dashboard/forecast-section";
 import { ReturnStatsPanel } from "@/components/dashboard/return-stats";
 import { StartWindowToggle } from "@/components/dashboard/start-window-toggle";
 import type {
@@ -304,6 +305,7 @@ export function WindowedSections({
         chartStartWindows={chartStartWindows}
         defaultChartStart={defaultChartStart}
       />
+      <ForecastSection data={baseData} currency={currency} />
     </>
   );
 }

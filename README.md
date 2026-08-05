@@ -10,6 +10,7 @@ Drop monthly statements in a configured folder layout, extract them into a broke
 - **TWRR**, **CAGR**, **MWRR** (total and annualized), yearly breakdowns
 - Position weights over time
 - Portfolio vs benchmarks (time-weighted growth **or** same external cash flows)
+- **Forecast** multi-scenario projections (contributions, start/end, min/expected/max/historical returns)
 
 Runs entirely on your machine. **No auth, no cloud, no bank/credit-card statements** — investment/brokerage accounts only.
 
@@ -177,25 +178,27 @@ src/lib/
   performance.ts        # TWRR / MWRR / P&amp;L (pure)
   series.ts             # chart series builders (pure)
   benchmarks.ts         # vs-index comparison (pure)
-  forecast.ts           # return projection math (pure; UI later)
+  forecast.ts           # return projection math (pure)
   config.ts             # load example / local config
-src/components/charts/  # Apache ECharts wrappers
-src/components/dashboard/
+src/components/charts/  # Apache ECharts wrappers (incl. forecast)
+src/components/dashboard/  # includes Forecast section
 ```
 
 ### Future metrics &amp; charts
 
 Add pure helpers under `src/lib/`, unit-test them, then drop a new chart into `windowed-sections.tsx` via `ChartSection`. Domain math stays importable without Next.
 
-### Forecasting (stub)
+### Forecasting
 
-`src/lib/forecast.ts` projects balances given:
+Dashboard **Forecast** section (`ForecastSection`) lets you customize:
 
-- annual % scenarios: min / expected / max / historical  
-- contribution frequency (none, monthly, biweekly, …)  
-- compounding (monthly, quarterly, annually, continuous)
+- starting principal (defaults to latest net worth)
+- contribution **amount per event** and **frequency** (none / weekly / biweekly / monthly / quarterly / annually)
+- **start date**, optional **end date**, or open-ended **horizon years**
+- annual return %: **min**, **expected**, **max**, and **historical** (defaults from portfolio CAGR when available)
+- compounding frequency
 
-Not wired into the UI yet — extension point for a future projection view.
+All paths are computed by pure `buildForecastProjection` in `src/lib/forecast.ts` and plotted with ECharts (min / expected / max / historical).
 
 ---
 
