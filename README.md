@@ -24,12 +24,30 @@ pnpm install
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The app loads committed **sample portfolio** data so charts work immediately.
+Open [http://localhost:3000](http://localhost:3000). Until you extract your statements, the home page shows a **setup alert** with the steps below (no sample portfolio is shipped).
 
 ```bash
 pnpm test    # Vitest — performance, series, benchmarks, forecast math
 pnpm build   # production build
 ```
+
+### First-time data setup
+
+```bash
+# 1. Local config (gitignored)
+cp config/config.example.json config/config.local.json
+# edit pdfRoot, chartStartWindows, accountGroups as needed
+
+# 2. Extract brokerage PDFs → data/data.json
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r scripts/requirements.txt
+python scripts/run_extract.py
+
+# 3. Benchmark prices → data/benchmarks.json (for vs-benchmark charts)
+python scripts/fetch_benchmarks.py
+```
+
+Then reload `pnpm dev`. The dashboard reads `data/data.json` only — regenerate after adding statements.
 
 ---
 
@@ -100,7 +118,7 @@ Writes (gitignored):
 python scripts/fetch_benchmarks.py
 ```
 
-Updates `data/benchmarks.json` from Yahoo via `yfinance` using tickers in config.
+Writes `data/benchmarks.json` (gitignored) from Yahoo via `yfinance` using tickers in config. Without this file, portfolio charts still work; the vs-benchmark section has no index series until you fetch.
 
 ---
 
@@ -146,7 +164,7 @@ Account ids use `stable_account_id(institution, accountNumber, slug=broker.id)` 
 
 ```
 config/                 # example + local user config
-data/                   # sample + optional real extract / benchmarks
+data/                   # gitignored extracts + benchmarks (generate locally)
 scripts/extract/
   common.py             # StatementExtract, money/FX helpers
   registry.py           # parser discovery by name

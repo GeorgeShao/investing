@@ -53,6 +53,12 @@ data/data.json
 data/extraction-report.json
 data/raw-extracts.json
 
+# Benchmark prices — fetch locally: python scripts/fetch_benchmarks.py
+data/benchmarks.json
+
+# Sample portfolio removed from the open-source tree (use real extracts only)
+data/sample-portfolio.json
+
 # Never commit statement PDFs
 **/*.pdf
 !scripts/tests/fixtures/**/*.pdf

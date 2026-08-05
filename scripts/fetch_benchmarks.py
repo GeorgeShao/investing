@@ -5,7 +5,7 @@ Fetch month-end benchmark prices via yfinance for the investing dashboard.
 Tickers default from config/config.example.json (or config.local.json) benchmarks[]
 plus USDCAD (CAD=X) for converting USD indexes.
 
-Writes data/benchmarks.json (safe to commit — market prices only, no PII).
+Writes data/benchmarks.json (gitignored — each user fetches their own prices).
 
 Usage:
   source .venv/bin/activate
