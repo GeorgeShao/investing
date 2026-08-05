@@ -71,11 +71,7 @@ function buildOption(
   const isCash = mode === "cashflow";
   const benchSeries = Object.entries(series.benchmarks).map(
     ([id, b], index) =>
-      line(
-        `${b.label} (${b.currencyNote})`,
-        b.values,
-        colorForBenchmark(id, index),
-      ),
+      line(b.label, b.values, colorForBenchmark(id, index)),
   );
 
   return {

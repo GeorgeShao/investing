@@ -48,6 +48,15 @@ function buildOption(
     emphasis: { focus: "series" as const },
   }));
 
+  // Plain (wrapping) legend like Net worth — no horizontal scroll pager.
+  // Reserve grid space so multi-line legends do not overlap the plot.
+  const approxItemsPerRow = 6;
+  const legendRows = Math.max(
+    1,
+    Math.ceil(series.instruments.length / approxItemsPerRow),
+  );
+  const gridTop = Math.min(48 + legendRows * 22, 220);
+
   return {
     color: series.instruments.map((i) => i.color),
     tooltip: {
@@ -98,16 +107,19 @@ function buildOption(
       },
     },
     legend: {
-      type: "scroll",
+      // Default "plain" type wraps; "scroll" forces a horizontal pager.
       top: 0,
+      left: "center",
+      width: "92%",
+      itemGap: 10,
+      itemWidth: 14,
+      itemHeight: 10,
       textStyle: { color: "#64748b", fontSize: 11 },
-      pageIconColor: "#64748b",
-      pageTextStyle: { color: "#64748b" },
     },
     grid: {
       left: 16,
       right: 16,
-      top: 72,
+      top: gridTop,
       bottom: 8,
       containLabel: true,
     },

@@ -11,6 +11,14 @@ export interface NetWorthChartProps {
   height?: number;
 }
 
+function formatMoney(value: number, currency: string): string {
+  return new Intl.NumberFormat("en-CA", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
 function buildOption(series: NetWorthSeries, currency: string): EChartsOption {
   const stackSeries = series.accounts.map((account) => ({
     name: account.name,
@@ -27,14 +35,53 @@ function buildOption(series: NetWorthSeries, currency: string): EChartsOption {
     tooltip: {
       trigger: "axis",
       axisPointer: { type: "shadow" },
-      valueFormatter: (value) =>
-        typeof value === "number"
-          ? new Intl.NumberFormat("en-CA", {
-              style: "currency",
-              currency,
-              maximumFractionDigits: 0,
-            }).format(value)
-          : String(value ?? ""),
+      // Stacked accounts + total net worth (no separate total line on the chart).
+      formatter: (raw) => {
+        type TipItem = {
+          dataIndex?: number;
+          axisValueLabel?: string | number;
+          axisValue?: string | number;
+          data?: unknown;
+          value?: unknown;
+          color?: string;
+          seriesName?: string;
+        };
+        const items = (Array.isArray(raw) ? raw : [raw]) as TipItem[];
+        if (items.length === 0) return "";
+        const axisLabel = String(
+          items[0]?.axisValueLabel ?? items[0]?.axisValue ?? "",
+        );
+        const idx =
+          typeof items[0]?.dataIndex === "number" ? items[0].dataIndex : 0;
+        const lines: string[] = [
+          `<div style="font-weight:600;margin-bottom:4px">${axisLabel}</div>`,
+        ];
+        for (const item of items) {
+          const rawVal = item.data ?? item.value;
+          const value = typeof rawVal === "number" ? rawVal : Number(rawVal);
+          if (!Number.isFinite(value)) continue;
+          const color = typeof item.color === "string" ? item.color : "#94a3b8";
+          const name = item.seriesName ?? "";
+          lines.push(
+            `<div style="display:flex;align-items:center;gap:6px;line-height:1.5">` +
+              `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color}"></span>` +
+              `<span style="flex:1">${name}</span>` +
+              `<span style="font-variant-numeric:tabular-nums">${formatMoney(value, currency)}</span>` +
+              `</div>`,
+          );
+        }
+        const total = series.totals[idx];
+        if (typeof total === "number" && Number.isFinite(total)) {
+          lines.push(
+            `<div style="display:flex;align-items:center;gap:6px;line-height:1.5;margin-top:4px;padding-top:4px;border-top:1px solid #e2e8f0">` +
+              `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#0f172a"></span>` +
+              `<span style="flex:1;font-weight:600">Total net worth</span>` +
+              `<span style="font-variant-numeric:tabular-nums;font-weight:600">${formatMoney(total, currency)}</span>` +
+              `</div>`,
+          );
+        }
+        return lines.join("");
+      },
     },
     legend: {
       top: 0,
@@ -69,21 +116,7 @@ function buildOption(series: NetWorthSeries, currency: string): EChartsOption {
       },
       splitLine: { lineStyle: { color: "#e2e8f0", type: "dashed" } },
     },
-    series: [
-      ...stackSeries,
-      {
-        name: "Total net worth",
-        type: "line",
-        data: series.totals,
-        smooth: true,
-        symbol: "circle",
-        symbolSize: 7,
-        z: 10,
-        itemStyle: { color: "#0f172a" },
-        lineStyle: { width: 2.5, color: "#0f172a" },
-        emphasis: { focus: "series" },
-      },
-    ],
+    series: stackSeries,
   };
 }
 
