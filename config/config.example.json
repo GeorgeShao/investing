@@ -3,30 +3,37 @@
   "pdfRoot": "~/Downloads/Monthly PDF Statements",
   "brokers": [
     {
-      "id": "questrade",
+      "id": "qt",
       "name": "Questrade",
       "folder": "Questrade Monthly PDF Statements",
       "parser": "questrade"
     },
     {
-      "id": "wealthsimple",
+      "id": "ws",
       "name": "Wealthsimple",
       "folder": "Wealthsimple Monthly PDF Statements",
       "parser": "wealthsimple"
     }
   ],
   "chartStartWindows": [
-    {
-      "id": "2023-05",
-      "label": "May 2023"
-    },
-    {
-      "id": "2023-11",
-      "label": "Nov 2023"
-    }
+    { "id": "2022-02", "label": "Feb 2022" },
+    { "id": "2023-05", "label": "May 2023" }
   ],
   "defaultChartStart": "2023-05",
-  "accountGroups": [],
+  "accountGroups": [
+    {
+      "name": "WS Non-Registered",
+      "memberIds": ["ws-example1cad", "ws-example1usd"]
+    },
+    {
+      "name": "WS TFSA",
+      "memberIds": ["ws-example2cad", "ws-example2usd"]
+    },
+    {
+      "name": "WS FHSA",
+      "memberIds": ["ws-example3cad", "ws-example3usd"]
+    }
+  ],
   "currency": "CAD",
   "benchmarks": [
     {

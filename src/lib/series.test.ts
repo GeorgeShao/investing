@@ -53,6 +53,29 @@ describe("sample-portfolio.json (shipped fixture)", () => {
     const mismatches = findNetWorthMismatches(data);
     expect(mismatches).toEqual([]);
   });
+
+  it("aligns with config.example.json windows and account groups", () => {
+    const data = loadSample();
+    const cfgPath = resolve(__dirname, "../../config/config.example.json");
+    const cfg = JSON.parse(readFileSync(cfgPath, "utf8")) as {
+      chartStartWindows: Array<{ id: string }>;
+      accountGroups: Array<{ name: string; memberIds: string[] }>;
+    };
+    const periodIds = new Set(data.periods.map((p) => p.id));
+    const accountIds = new Set(data.accounts.map((a) => a.id));
+
+    for (const w of cfg.chartStartWindows) {
+      expect(periodIds.has(w.id)).toBe(true);
+    }
+    for (const g of cfg.accountGroups) {
+      for (const id of g.memberIds) {
+        expect(accountIds.has(id)).toBe(true);
+      }
+      // Grouped series should collapse members into one stack
+      const series = buildNetWorthSeries(data, [g]);
+      expect(series.accounts.some((a) => a.name === g.name)).toBe(true);
+    }
+  });
 });
 
 describe("sliceFromFirstPositiveNetWorth / sliceFromPeriodId", () => {

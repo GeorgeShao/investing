@@ -240,9 +240,16 @@ def build_portfolio(
         )
         best_type = ranked[0][0]
         meta["type"] = best_type
-        # Short prefix from institution for display (not hard-coded qt/ws only)
+        # Short display prefix: prefer known brokerage nicknames, else initials/slug
         inst = meta["institution"]
-        prefix = "".join(c for c in inst if c.isupper())[:3] or inst[:3].upper()
+        inst_l = inst.lower()
+        if "wealthsimple" in inst_l or inst_l == "ws":
+            prefix = "WS"
+        elif "questrade" in inst_l or inst_l == "qt":
+            prefix = "QT"
+        else:
+            initials = "".join(c for c in inst if c.isupper())[:3]
+            prefix = initials or inst[:3].upper()
         meta["name"] = (
             f"{prefix} {type_names.get(best_type, 'Account')} "
             f"({meta['externalIds']['accountNumber']})"
