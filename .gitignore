@@ -1,0 +1,63 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# Python extraction venv + caches
+.venv/
+scripts/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# User-local config (may contain absolute paths)
+config/config.local.json
+
+# Generated portfolio extracts (account numbers, balances, trades — regenerate locally)
+data/data.json
+data/extraction-report.json
+data/raw-extracts.json
+
+# Never commit statement PDFs
+**/*.pdf
+!scripts/tests/fixtures/**/*.pdf
+
+# Editor
+.idea/
+.vscode/
+*.swp

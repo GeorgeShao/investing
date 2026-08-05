@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "pdfRoot": "~/Downloads/Monthly PDF Statements",
+  "brokers": [
+    {
+      "id": "questrade",
+      "name": "Questrade",
+      "folder": "Questrade Monthly PDF Statements",
+      "parser": "questrade"
+    },
+    {
+      "id": "wealthsimple",
+      "name": "Wealthsimple",
+      "folder": "Wealthsimple Monthly PDF Statements",
+      "parser": "wealthsimple"
+    }
+  ],
+  "chartStartWindows": [
+    {
+      "id": "2023-05",
+      "label": "May 2023"
+    },
+    {
+      "id": "2023-11",
+      "label": "Nov 2023"
+    }
+  ],
+  "defaultChartStart": "2023-05",
+  "accountGroups": [],
+  "currency": "CAD",
+  "benchmarks": [
+    {
+      "id": "XEQT",
+      "yahoo": "XEQT.TO",
+      "currency": "CAD",
+      "label": "XEQT"
+    },
+    {
+      "id": "VOO",
+      "yahoo": "VOO",
+      "currency": "USD",
+      "label": "VOO"
+    },
+    {
+      "id": "QQQ",
+      "yahoo": "QQQ",
+      "currency": "USD",
+      "label": "QQQ"
+    }
+  ]
+}
