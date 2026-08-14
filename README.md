@@ -111,7 +111,7 @@ Writes (gitignored):
 
 - `data/data.json` — portfolio document (dashboard input when present)
 - `data/extraction-report.json` — coverage, transfer adjustments, errors
-- `data/raw-extracts.json` — per-PDF extracts before merge mutations
+- `data/raw-extracts.json` — extract cache (per-PDF output before merge; reused unless `--force`)
 
 ### Refresh benchmarks
 

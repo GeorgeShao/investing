@@ -5,7 +5,7 @@
 | `data.json` | **No** (gitignored) | Your extract from `scripts/run_extract.py` — required for the dashboard |
 | `benchmarks.json` | **No** (gitignored) | Month-end index levels from `scripts/fetch_benchmarks.py` |
 | `extraction-report.json` | **No** | Coverage, transfer reclass audit, parse errors |
-| `raw-extracts.json` | **No** | Per-PDF parser output before merge mutations |
+| `raw-extracts.json` | **No** | Extract cache: per-PDF parser output keyed by path + mtime + size (before merge mutations). Reused on the next run unless `--force`. |
 
 Without `data.json`, the app shows a setup alert with instructions (no sample portfolio is shipped).
 

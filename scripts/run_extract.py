@@ -10,6 +10,7 @@ Usage (from repo root):
   python scripts/run_extract.py
   python scripts/run_extract.py --config config/config.local.json
   python scripts/run_extract.py --pdf-root "/path/to/statements"
+  python scripts/run_extract.py --force
 """
 
 from __future__ import annotations
@@ -17,13 +18,14 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from dataclasses import fields as dataclass_fields
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from extract.common import StatementExtract  # noqa: E402
+from extract.common import Holding, StatementExtract, Transaction  # noqa: E402
 from extract.merge import build_portfolio, validate_portfolio  # noqa: E402
 from extract.registry import get_parser, list_parsers  # noqa: E402
 
@@ -85,12 +87,104 @@ def discover_pdfs_for_broker(pdf_root: Path, folder: str) -> list[Path]:
     return sorted(broker_dir.rglob("*.pdf"))
 
 
+def file_fingerprint(path: Path) -> dict[str, int]:
+    st = path.stat()
+    return {"mtime_ns": st.st_mtime_ns, "size": st.st_size}
+
+
+def _dataclass_kwargs(cls: type, data: dict[str, Any]) -> dict[str, Any]:
+    names = {f.name for f in dataclass_fields(cls)}
+    return {k: v for k, v in data.items() if k in names}
+
+
+def extract_from_dict(d: dict[str, Any]) -> StatementExtract:
+    """Rebuild a StatementExtract from StatementExtract.to_dict() output."""
+    holdings = [
+        Holding(**_dataclass_kwargs(Holding, h))
+        for h in (d.get("holdings") or [])
+        if isinstance(h, dict)
+    ]
+    txs = [
+        Transaction(**_dataclass_kwargs(Transaction, t))
+        for t in (d.get("transactions") or [])
+        if isinstance(t, dict)
+    ]
+    skip = {"holdings", "transactions"}
+    payload = _dataclass_kwargs(
+        StatementExtract, {k: v for k, v in d.items() if k not in skip}
+    )
+    return StatementExtract(**payload, holdings=holdings, transactions=txs)
+
+
+def load_raw_cache(path: Path) -> dict[str, dict[str, Any]]:
+    """
+    Load path → {mtime_ns, size, extract} from raw-extracts.json.
+
+    Missing, unreadable, or legacy list-shaped files are an empty cache.
+    """
+    if not path.is_file():
+        return {}
+    try:
+        raw = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {}
+    files = raw.get("files") if isinstance(raw, dict) else None
+    if not isinstance(files, dict):
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for key, entry in files.items():
+        if isinstance(key, str) and isinstance(entry, dict):
+            out[key] = entry
+    return out
+
+
+def cached_extract_dict(
+    cache: dict[str, dict[str, Any]],
+    path: Path,
+) -> dict[str, Any] | None:
+    """Return the stored extract dict when path + mtime_ns + size match."""
+    hit = cache.get(str(path))
+    if not isinstance(hit, dict):
+        return None
+    extract = hit.get("extract")
+    if not isinstance(extract, dict):
+        return None
+    try:
+        fp = file_fingerprint(path)
+    except OSError:
+        return None
+    if hit.get("mtime_ns") == fp["mtime_ns"] and hit.get("size") == fp["size"]:
+        return extract
+    return None
+
+
+def build_raw_cache(extracts: list[StatementExtract]) -> dict[str, Any]:
+    """Fingerprint-bearing raw dump. Dropped/missing source files are omitted."""
+    files: dict[str, dict[str, Any]] = {}
+    for ex in extracts:
+        src = Path(ex.source_path)
+        if not src.is_file():
+            continue
+        try:
+            fp = file_fingerprint(src)
+        except OSError:
+            continue
+        files[str(src)] = {**fp, "extract": ex.to_dict()}
+    return {"files": files}
+
+
 def extract_all(
     pdf_root: Path,
     brokers: list[dict[str, Any]],
-) -> tuple[list[StatementExtract], list[dict[str, Any]]]:
+    *,
+    cache: dict[str, dict[str, Any]] | None = None,
+    force: bool = False,
+) -> tuple[list[StatementExtract], list[dict[str, Any]], dict[str, int]]:
     extracts: list[StatementExtract] = []
     errors: list[dict[str, Any]] = []
+    effective = {} if force else (cache or {})
+    hits = 0
+    parsed = 0
 
     for broker in brokers:
         parser_name = broker.get("parser") or broker.get("id")
@@ -110,6 +204,14 @@ def extract_all(
 
         pdfs = discover_pdfs_for_broker(pdf_root, folder)
         for path in pdfs:
+            stored = cached_extract_dict(effective, path)
+            if stored is not None:
+                try:
+                    extracts.append(extract_from_dict(stored))
+                    hits += 1
+                    continue
+                except (TypeError, KeyError, ValueError):
+                    pass
             try:
                 extracts.append(parse_fn(path))
             except Exception as e:  # noqa: BLE001 — collect all failures
@@ -120,8 +222,14 @@ def extract_all(
                         "error": f"{type(e).__name__}: {e}",
                     }
                 )
+            parsed += 1
 
-    return extracts, errors
+    stats = {
+        "discovered": hits + parsed,
+        "cache_hits": hits,
+        "parsed": parsed,
+    }
+    return extracts, errors, stats
 
 
 def institution_slug_map(brokers: list[dict[str, Any]]) -> dict[str, str]:
@@ -159,6 +267,11 @@ def main() -> int:
     parser.add_argument("--raw", type=Path, default=DEFAULT_RAW)
     parser.add_argument("--skip-raw", action="store_true")
     parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Ignore raw-extracts.json cache and re-parse every PDF",
+    )
+    parser.add_argument(
         "--list-parsers",
         action="store_true",
         help="Print registered parser keys and exit",
@@ -186,12 +299,21 @@ def main() -> int:
         )
         return 2
 
+    cache: dict[str, dict[str, Any]] = {}
+    if not args.force:
+        cache = load_raw_cache(args.raw)
+
     print(f"Scanning {pdf_root} with {len(brokers)} broker(s) ...")
     print(f"Parsers available: {', '.join(list_parsers())}")
-    extracts, errors = extract_all(pdf_root, brokers)
-    print(f"Parsed OK: {len(extracts)}  Failed: {len(errors)}")
+    extracts, errors, stats = extract_all(
+        pdf_root, brokers, cache=cache, force=args.force
+    )
+    print(
+        f"Parsed OK: {len(extracts)}  Failed: {len(errors)}  "
+        f"cache hits: {stats['cache_hits']}  "
+        f"re-parsed: {stats['parsed']}"
+    )
 
-    raw_snapshot = [ex.to_dict() for ex in extracts]
     slugs = institution_slug_map(brokers)
     usdcad = load_usdcad_benchmark()
     if usdcad:
@@ -232,7 +354,8 @@ def main() -> int:
     args.out.write_text(json.dumps(portfolio, indent=2) + "\n")
     args.report.write_text(json.dumps(report, indent=2) + "\n")
     if not args.skip_raw:
-        args.raw.write_text(json.dumps(raw_snapshot, indent=2) + "\n")
+        args.raw.parent.mkdir(parents=True, exist_ok=True)
+        args.raw.write_text(json.dumps(build_raw_cache(extracts), indent=2) + "\n")
 
     print(f"Wrote {args.out}")
     print(f"Wrote {args.report}")
