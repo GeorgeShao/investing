@@ -13,6 +13,20 @@
       "name": "Wealthsimple",
       "folder": "Wealthsimple Monthly PDF Statements",
       "parser": "wealthsimple"
+    },
+    {
+      "id": "fid",
+      "name": "Fidelity",
+      "folder": "Fidelity Personal",
+      "parser": "fidelity_personal",
+      "currency": "USD"
+    },
+    {
+      "id": "fid-emp",
+      "name": "Fidelity Employer",
+      "folder": "Fidelity Employer",
+      "parser": "fidelity_employer",
+      "currency": "USD"
     }
   ],
   "chartStartWindows": [
@@ -32,6 +46,14 @@
     {
       "name": "WS FHSA",
       "memberIds": ["ws-example3cad", "ws-example3usd"]
+    },
+    {
+      "name": "Fidelity Non-Registered",
+      "memberIds": ["fid-example-tod"]
+    },
+    {
+      "name": "Fidelity 401(k)",
+      "memberIds": ["fid-example-bl", "fid-emp-example-plan"]
     }
   ],
   "currency": "CAD",

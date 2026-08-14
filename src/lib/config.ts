@@ -19,7 +19,7 @@ export interface AccountGroupConfig {
 }
 
 export interface BrokerConfig {
-  /** Institution slug used in stable account ids (e.g. "questrade", "wealthsimple"). */
+  /** Institution slug used in stable account ids (e.g. "qt", "ws", "fid"). */
   id: string;
   /** Display name on the dashboard. */
   name: string;
@@ -30,6 +30,11 @@ export interface BrokerConfig {
   folder: string;
   /** Parser registry key (must match a registered extractor). */
   parser: string;
+  /**
+   * Default native statement currency for this broker's accounts when the
+   * account number does not encode CAD/USD (e.g. all Fidelity accounts are USD).
+   */
+  currency?: "CAD" | "USD" | string;
 }
 
 export interface BenchmarkConfig {

@@ -11,7 +11,12 @@ describe("resolveConfig", () => {
     expect(cfg.schemaVersion).toBe(1);
     expect(cfg.brokers.length).toBeGreaterThanOrEqual(2);
     expect(cfg.brokers.map((b) => b.parser).sort()).toEqual(
-      ["questrade", "wealthsimple"].sort(),
+      [
+        "fidelity_employer",
+        "fidelity_personal",
+        "questrade",
+        "wealthsimple",
+      ].sort(),
     );
     expect(cfg.chartStartWindows.length).toBeGreaterThanOrEqual(1);
     expect(cfg.benchmarks.some((b) => b.id === "XEQT")).toBe(true);

@@ -4,9 +4,11 @@ import {
   benchmarkMonthlyReturn,
   buildBenchmarkComparison,
   cashFlowMatchedLevels,
+  computeOpponentComparison,
   computeYearlyCashFlowMatchedReturns,
   cumulativeFromMonthlyReturns,
   listBenchmarkIds,
+  pickDefaultOpponentId,
   type BenchmarkFile,
 } from "@/lib/benchmarks";
 import type { PortfolioData } from "@/lib/types";
@@ -124,5 +126,66 @@ describe("computeYearlyCashFlowMatchedReturns", () => {
     expect(rows.length).toBe(1);
     expect(rows[0].year).toBe(2024);
     expect(rows[0].byBenchmark.XEQT).not.toBeNull();
+  });
+});
+
+describe("pickDefaultOpponentId", () => {
+  it("prefers QQQ when present", () => {
+    expect(pickDefaultOpponentId(["XEQT", "VOO", "QQQ"])).toBe("QQQ");
+  });
+
+  it("falls back to the first id when QQQ is missing", () => {
+    expect(pickDefaultOpponentId(["XEQT", "VOO"])).toBe("XEQT");
+  });
+});
+
+describe("computeOpponentComparison", () => {
+  it("same holdings as XEQT: dollar path matches and holdings rates match", () => {
+    const cmp = computeOpponentComparison(portfolio, fixture, "XEQT");
+    expect(cmp.headline.opponentId).toBe("XEQT");
+    expect(cmp.headline.youEnd).toBe(1210);
+    expect(cmp.headline.opponentEnd).toBeCloseTo(1210, 6);
+    expect(cmp.headline.dollarDelta).toBeCloseTo(0, 6);
+    expect(cmp.headline.youHoldingsAnn).not.toBeNull();
+    expect(cmp.headline.opponentHoldingsAnn).toBeCloseTo(
+      cmp.headline.youHoldingsAnn!,
+      8,
+    );
+    expect(cmp.yearly).toHaveLength(1);
+    expect(cmp.yearly[0].you?.gain).toBeCloseTo(210, 6);
+    expect(cmp.yearly[0].opponent?.gain).toBeCloseTo(210, 6);
+    expect(cmp.yearly[0].you?.rate).toBeCloseTo(0.21, 8);
+    expect(cmp.yearly[0].opponent?.rate).toBeCloseTo(0.21, 8);
+  });
+
+  it("paycheck-honest yearly % uses start + net deposits, not end/start", () => {
+    const withDeposit: typeof portfolio = {
+      ...portfolio,
+      periods: [
+        portfolio.periods[0],
+        {
+          ...portfolio.periods[1],
+          totalNetWorth: 2100,
+          cashFlows: {
+            deposits: 1000,
+            withdrawals: 0,
+            dividends: 0,
+            interest: 0,
+          },
+        },
+        {
+          ...portfolio.periods[2],
+          totalNetWorth: 2310,
+        },
+      ],
+    };
+    const cmp = computeOpponentComparison(withDeposit, fixture, "XEQT");
+    const row = cmp.yearly[0];
+    expect(row.you).not.toBeNull();
+    // start 1000 + 1000 deposit = 2000 invested; end 2310 → gain 310 → 15.5%
+    expect(row.you!.gain).toBeCloseTo(310, 6);
+    expect(row.you!.rate).toBeCloseTo(310 / 2000, 8);
+    expect((2310 - 1000) / 1000).toBe(1.31);
+    expect(row.you!.rate).not.toBeCloseTo(1.31, 2);
   });
 });

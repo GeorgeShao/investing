@@ -45,28 +45,75 @@ def _rescale_extract_fx(ex: StatementExtract, new_fx: float, old_fx: float) -> N
     ex.fx_rate = new_fx
 
 
-def refine_usd_fx(extracts: list[StatementExtract]) -> None:
-    """Fill missing USD FX rates from plausible sibling rates in the same period."""
+def _median(rates: list[float]) -> float:
+    s = sorted(rates)
+    return s[len(s) // 2]
+
+
+def refine_usd_fx(
+    extracts: list[StatementExtract],
+    *,
+    usdcad_by_period: dict[str, float] | None = None,
+) -> None:
+    """
+    Fill missing USD→CAD rates for USD statements using the **exact** month only.
+
+    Priority:
+      1. Plausible rate already on the extract
+      2. Median of other extracts in the same period (statement footnotes)
+      3. Month-end USDCAD for that same period_id from data/benchmarks.json (CAD=X)
+
+    Never borrows a rate from another month. If neither source has an exact-month
+    rate, leave the extract flagged with ``missing_fx_rate_usd_assumed_1`` so the
+    dashboard / report can alert — do not invent a conversion.
+    """
     by_period: dict[str, list[float]] = defaultdict(list)
     for ex in extracts:
         if is_plausible_usd_to_cad(ex.fx_rate):
             by_period[ex.period_id].append(float(ex.fx_rate))
-    period_fx = {
-        p: sorted(rates)[len(rates) // 2] for p, rates in by_period.items() if rates
+    sibling_fx = {
+        p: _median(rates) for p, rates in by_period.items() if rates
     }
+
+    bench_fx: dict[str, float] = {}
+    if usdcad_by_period:
+        for pid, rate in usdcad_by_period.items():
+            try:
+                r = float(rate)
+            except (TypeError, ValueError):
+                continue
+            if is_plausible_usd_to_cad(r):
+                bench_fx[str(pid)] = r
+
     for ex in extracts:
         if ex.statement_currency != "USD":
             continue
         if is_plausible_usd_to_cad(ex.fx_rate):
             continue
-        fx = period_fx.get(ex.period_id)
+
+        fx: float | None = None
+        note: str | None = None
+        if ex.period_id in sibling_fx:
+            fx = sibling_fx[ex.period_id]
+            note = "fx_rate_filled_from_period_siblings"
+        elif ex.period_id in bench_fx:
+            fx = bench_fx[ex.period_id]
+            note = "fx_rate_filled_from_usdcad_benchmark"
+
         if not fx:
+            # Exact-month rate unavailable — keep 1:1 placeholder + flag for alert.
+            if "missing_fx_rate_usd_assumed_1" not in ex.notes:
+                ex.notes.append("missing_fx_rate_usd_assumed_1")
+            if abs(ex.market_value) > 0.005:
+                ex.confidence = "medium"
             continue
+
         old = ex.fx_rate if ex.fx_rate and ex.fx_rate > 0 else 1.0
         if abs(ex.market_value_cad - ex.market_value * old) < 0.05 or abs(old - 1.0) < 1e-9:
             _rescale_extract_fx(ex, fx, old)
             ex.notes = [n for n in ex.notes if n != "missing_fx_rate_usd_assumed_1"]
-            ex.notes.append("fx_rate_filled_from_period_siblings")
+            if note:
+                ex.notes.append(note)
             if ex.market_value != 0:
                 ex.confidence = "medium"
 
@@ -194,8 +241,9 @@ def build_portfolio(
     currency: str = "CAD",
     pdf_root: str | None = None,
     institution_slugs: dict[str, str] | None = None,
+    usdcad_by_period: dict[str, float] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    refine_usd_fx(extracts)
+    refine_usd_fx(extracts, usdcad_by_period=usdcad_by_period)
 
     type_votes: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     accounts_meta: dict[str, dict[str, Any]] = {}
@@ -203,17 +251,20 @@ def build_portfolio(
         aid = account_id_for(ex, institution_slugs)
         type_votes[aid][ex.account_type] += 1
         if aid not in accounts_meta:
-            ccy = (
-                ex.account_number[-3:]
-                if len(ex.account_number) >= 3 and ex.account_number[-3:] in {"CAD", "USD"}
-                else ex.statement_currency
-            )
+            # Prefer CAD/USD suffix on account numbers (Wealthsimple sleeves),
+            # else statement currency (Fidelity Personal/Employer are always USD).
+            if len(ex.account_number) >= 3 and ex.account_number[-3:] in {"CAD", "USD"}:
+                ccy = ex.account_number[-3:]
+            elif ex.statement_currency in {"CAD", "USD"}:
+                ccy = ex.statement_currency
+            else:
+                ccy = currency
             accounts_meta[aid] = {
                 "id": aid,
                 "name": "",
                 "institution": ex.institution,
                 "type": ex.account_type,
-                "currency": ccy if ccy in {"CAD", "USD"} else currency,
+                "currency": ccy,
                 "openedAt": ex.start_date,
                 "status": "active",
                 "externalIds": {
@@ -247,6 +298,10 @@ def build_portfolio(
             prefix = "WS"
         elif "questrade" in inst_l or inst_l == "qt":
             prefix = "QT"
+        elif "fidelity" in inst_l and ("employer" in inst_l or "netbenefits" in inst_l):
+            prefix = "Fidelity Employer"
+        elif "fidelity" in inst_l:
+            prefix = "Fidelity"
         else:
             initials = "".join(c for c in inst if c.isupper())[:3]
             prefix = initials or inst[:3].upper()
@@ -417,6 +472,8 @@ def build_portfolio(
             "notes": [
                 "Balances are month-end market values converted to base currency when needed.",
                 "Investment/brokerage accounts only — bank and credit-card statements are out of scope.",
+                "Fidelity Personal and Fidelity Employer statements are USD-native; CAD totals use same-period statement FX when available, else exact-month USDCAD from data/benchmarks.json (never a neighboring month).",
+                "Fidelity Employer NetBenefits totals exclude the Brokeragelink sleeve (covered by Personal BrokerageLink reports) to avoid double-counting.",
                 "Cash flows: deposits/withdrawals are EXTERNAL only; account-to-account movements are reclassified as transfers.",
                 "Empty $0 statements are retained when a PDF exists for that month.",
                 "PDFs are not stored in this repository; re-run scripts/run_extract.py to regenerate.",
@@ -426,6 +483,8 @@ def build_portfolio(
                 "extractCount": len(extracts),
                 "errorCount": len(errors),
             },
+            "warnings": _usd_fx_warnings(extracts, institution_slugs)
+            + _missing_latest_statement_warnings(periods_out, accounts_list),
         },
         "accounts": accounts_list,
         "periods": periods_out,
@@ -450,6 +509,8 @@ def build_portfolio(
         "errors": errors,
         "assumptions": [
             f"Base currency: {currency}",
+            "Fidelity accounts default to native USD; CAD uses same-period statement FX or exact-month USDCAD only",
+            "Missing exact-month FX is never replaced with a neighboring month; meta.warnings lists those accounts",
             "Zero-balance months included when a statement PDF exists",
             "Deposits/withdrawals exclude internal account-to-account transfers",
             "Idempotent: same PDFs produce the same balances/cash flows (generatedAt differs)",
@@ -460,6 +521,118 @@ def build_portfolio(
         sum(a["amount"] for a in transfer_adjustments), 2
     )
     return portfolio, report
+
+
+def _usd_fx_warnings(
+    extracts: list[StatementExtract],
+    institution_slugs: dict[str, str] | None = None,
+) -> list[dict[str, Any]]:
+    """USD extracts still missing an exact-month conversion rate after refine."""
+    warnings: list[dict[str, Any]] = []
+    for ex in extracts:
+        if ex.statement_currency != "USD":
+            continue
+        if abs(ex.market_value) <= 0.005:
+            continue
+        if is_plausible_usd_to_cad(ex.fx_rate):
+            continue
+        warnings.append(
+            {
+                "code": "usd_missing_exact_month_fx",
+                "periodId": ex.period_id,
+                "accountId": account_id_for(ex, institution_slugs),
+                "accountNumber": ex.account_number,
+                "institution": ex.institution,
+                "nativeMarketValue": ex.market_value,
+                "message": (
+                    f"No USD→CAD rate for {ex.period_id} on {ex.institution} "
+                    f"({ex.account_number}). Need a same-period statement FX or "
+                    f"data/benchmarks.json prices.USDCAD for that exact month "
+                    f"(re-run: python scripts/fetch_benchmarks.py). "
+                    f"CAD totals currently treat this balance as unconverted."
+                ),
+            }
+        )
+    return warnings
+
+
+_POSITIVE_EPS = 0.005
+
+
+def _missing_latest_statement_warnings(
+    periods: list[dict[str, Any]],
+    accounts: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """
+    Account had a positive month-end the last time it appeared, but that
+    month is not the portfolio's latest month — usually a missing statement.
+    """
+    if len(periods) < 2:
+        return []
+    latest = periods[-1]
+    latest_id = latest.get("id")
+    latest_ids = {b.get("accountId") for b in latest.get("balances") or []}
+    by_id = {a.get("id"): a for a in accounts}
+    warnings: list[dict[str, Any]] = []
+
+    account_ids: list[str] = []
+    seen: set[str] = set()
+    for a in accounts:
+        aid = a.get("id")
+        if aid and aid not in seen:
+            seen.add(aid)
+            account_ids.append(aid)
+    for p in periods:
+        for b in p.get("balances") or []:
+            aid = b.get("accountId")
+            if aid and aid not in seen:
+                seen.add(aid)
+                account_ids.append(aid)
+
+    for aid in account_ids:
+        meta = by_id.get(aid) or {}
+        if meta.get("status") == "closed":
+            continue
+        if aid in latest_ids:
+            continue
+        last_period: str | None = None
+        last_mv: float | None = None
+        for p in periods:
+            for b in p.get("balances") or []:
+                if b.get("accountId") == aid:
+                    last_period = p.get("id")
+                    try:
+                        last_mv = float(b.get("marketValue") or 0)
+                    except (TypeError, ValueError):
+                        last_mv = 0.0
+        if (
+            last_period is None
+            or last_mv is None
+            or last_period == latest_id
+            or last_mv <= _POSITIVE_EPS
+        ):
+            continue
+        name = meta.get("name") or aid
+        warnings.append(
+            {
+                "code": "missing_latest_statement",
+                "periodId": last_period,
+                "latestPeriodId": latest_id,
+                "accountId": aid,
+                "accountNumber": (meta.get("externalIds") or {}).get(
+                    "accountNumber"
+                ),
+                "institution": meta.get("institution"),
+                "marketValue": round(last_mv, 2),
+                "message": (
+                    f"{name} had a positive month-end balance in {last_period} "
+                    f"({last_mv:,.2f}) but does not appear in {latest_id}, "
+                    f"the latest month in this extract. Net worth and returns "
+                    f"omit that account until a statement is added."
+                ),
+            }
+        )
+    return warnings
 
 
 def validate_portfolio(

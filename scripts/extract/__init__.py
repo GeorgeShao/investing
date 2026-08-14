@@ -1,6 +1,8 @@
 """PDF statement extraction for the investing analytics dashboard."""
 
 from .common import money, parse_pdf_text, stable_account_id, institution_slug
+from .fidelity_employer import extract_fidelity_employer_pdf
+from .fidelity_personal import extract_fidelity_personal_pdf
 from .registry import get_parser, list_parsers, register_parser
 from .questrade import extract_questrade_pdf
 from .wealthsimple import extract_wealthsimple_pdf
@@ -15,4 +17,6 @@ __all__ = [
     "register_parser",
     "extract_questrade_pdf",
     "extract_wealthsimple_pdf",
+    "extract_fidelity_personal_pdf",
+    "extract_fidelity_employer_pdf",
 ]

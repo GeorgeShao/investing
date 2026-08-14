@@ -32,6 +32,33 @@ LOCAL_CONFIG = ROOT / "config" / "config.local.json"
 DEFAULT_OUT = ROOT / "data" / "data.json"
 DEFAULT_REPORT = ROOT / "data" / "extraction-report.json"
 DEFAULT_RAW = ROOT / "data" / "raw-extracts.json"
+DEFAULT_BENCHMARKS = ROOT / "data" / "benchmarks.json"
+
+
+def load_usdcad_benchmark(path: Path | None = None) -> dict[str, float]:
+    """
+    Month-end USD→CAD (CAD per 1 USD) from data/benchmarks.json prices.USDCAD.
+
+    Returns {} if the file is missing — extract still works; USD sleeves stay
+    unconverted until benchmarks are fetched (`python scripts/fetch_benchmarks.py`).
+    """
+    bench_path = path or DEFAULT_BENCHMARKS
+    if not bench_path.is_file():
+        return {}
+    try:
+        data = json.loads(bench_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {}
+    prices = (data.get("prices") or {}).get("USDCAD") or {}
+    out: dict[str, float] = {}
+    for period_id, rate in prices.items():
+        try:
+            r = float(rate)
+        except (TypeError, ValueError):
+            continue
+        if r > 0:
+            out[str(period_id)] = r
+    return out
 
 
 def expand_path(raw: str) -> Path:
@@ -166,6 +193,14 @@ def main() -> int:
 
     raw_snapshot = [ex.to_dict() for ex in extracts]
     slugs = institution_slug_map(brokers)
+    usdcad = load_usdcad_benchmark()
+    if usdcad:
+        print(f"USDCAD benchmark months: {len(usdcad)} (for USD→CAD when statements lack FX)")
+    else:
+        print(
+            "No data/benchmarks.json USDCAD series — USD statements without "
+            "sibling FX stay at 1:1 until you run: python scripts/fetch_benchmarks.py"
+        )
 
     portfolio, report = build_portfolio(
         extracts,
@@ -173,6 +208,7 @@ def main() -> int:
         currency=currency,
         pdf_root=str(pdf_root),
         institution_slugs=slugs,
+        usdcad_by_period=usdcad or None,
     )
     report["pdfRoot"] = str(pdf_root)
     if portfolio.get("meta", {}).get("source"):

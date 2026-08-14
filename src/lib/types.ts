@@ -13,12 +13,28 @@ export type AccountType =
 
 export type AccountStatus = "active" | "closed" | "inactive";
 
+export interface PortfolioWarning {
+  code: string;
+  periodId?: string;
+  /** Latest portfolio month (for coverage gaps: the month the account is absent from). */
+  latestPeriodId?: string;
+  accountId?: string;
+  accountNumber?: string;
+  institution?: string;
+  nativeMarketValue?: number;
+  /** Last known market value in portfolio currency (CAD). */
+  marketValue?: number;
+  message: string;
+}
+
 export interface PortfolioMeta {
   schemaVersion: number;
   currency: string;
   generatedAt: string;
   description?: string;
   notes?: string[];
+  /** Data-quality issues (e.g. USD balance with no exact-month USDCAD rate). */
+  warnings?: PortfolioWarning[];
 }
 
 export interface Account {
@@ -47,6 +63,8 @@ export interface AccountBalance {
   /** Original statement total before CAD conversion (when nativeCurrency is USD). */
   nativeMarketValue?: number;
   nativeCurrency?: string;
+  /** True when this row is a user/carry-forward estimate, not a statement. */
+  estimated?: boolean;
 }
 
 export interface PeriodCashFlows {

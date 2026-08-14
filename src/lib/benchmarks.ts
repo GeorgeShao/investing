@@ -10,11 +10,18 @@ import type { PortfolioData } from "@/lib/types";
 import type { BenchmarkConfig } from "@/lib/config";
 import {
   buildMonthlyPnLSeries,
+  cagrFromTotalReturn,
+  computeReturnStats,
   externalNetFlow,
+  linkTwrr,
+  listYearWindows,
   monthOfPeriodId,
   monthlyTwrr,
+  mwrrStatsForValues,
+  simpleReturnForValues,
   yearOfPeriodId,
   yearlyMwrrForValues,
+  type WindowSimpleReturn,
 } from "@/lib/performance";
 
 export type BenchmarkId = string;
@@ -428,3 +435,171 @@ export function computeYearlyCashFlowMatchedReturns(
 }
 
 export { monthlyTwrr };
+
+/** Default "the market" opponent when present in the price file. */
+export const DEFAULT_OPPONENT_ID = "QQQ";
+
+export function pickDefaultOpponentId(ids: string[]): string {
+  if (ids.includes(DEFAULT_OPPONENT_ID)) return DEFAULT_OPPONENT_ID;
+  return ids[0] ?? DEFAULT_OPPONENT_ID;
+}
+
+export interface OpponentHeadline {
+  opponentId: string;
+  opponentLabel: string;
+  youEnd: number | null;
+  opponentEnd: number | null;
+  dollarDelta: number | null;
+  /** Holdings growth annualized (paycheck timing stripped). */
+  youHoldingsAnn: number | null;
+  opponentHoldingsAnn: number | null;
+  /** What the money actually earned, annualized (same deposits). */
+  youEarnedAnn: number | null;
+  opponentEarnedAnn: number | null;
+  monthCount: number;
+  fromPeriodId: string | null;
+  toPeriodId: string | null;
+}
+
+export interface YearlyOpponentRow {
+  year: number;
+  fromPeriodId: string;
+  toPeriodId: string;
+  isPartial: boolean;
+  you: WindowSimpleReturn | null;
+  opponent: WindowSimpleReturn | null;
+  dollarDelta: number | null;
+  youHoldings: number | null;
+  opponentHoldings: number | null;
+}
+
+export interface OpponentComparison {
+  headline: OpponentHeadline;
+  yearly: YearlyOpponentRow[];
+  twrr: BenchmarkSeries;
+  cashflow: BenchmarkSeries;
+}
+
+function lastFinite(values: Array<number | null>): number | null {
+  for (let i = values.length - 1; i >= 0; i--) {
+    const v = values[i];
+    if (v !== null && Number.isFinite(v)) return v;
+  }
+  return null;
+}
+
+/**
+ * You vs one opponent: paycheck-honest dollars (A) and holdings growth (B),
+ * plus yearly brokerage-style gain $ / %.
+ */
+export function computeOpponentComparison(
+  data: PortfolioData,
+  bench: BenchmarkFile,
+  opponentId: string,
+  configs?: BenchmarkConfig[],
+): OpponentComparison {
+  const meta = resolveBenchmarkMeta(opponentId, configs);
+  const youStats = computeReturnStats(data);
+  const shadow = cashFlowMatchedLevels(
+    data,
+    opponentId,
+    bench.prices,
+    meta.currency,
+  );
+  const youEnd = youStats.endNetWorth;
+  const opponentEnd = lastFinite(shadow);
+  const dollarDelta =
+    youEnd !== null && opponentEnd !== null ? youEnd - opponentEnd : null;
+
+  const oppMonthly: Array<number | null> = data.periods.map(() => null);
+  for (let i = 1; i < data.periods.length; i++) {
+    oppMonthly[i] = benchmarkMonthlyReturn(
+      opponentId,
+      data.periods[i - 1].id,
+      data.periods[i].id,
+      bench.prices,
+      meta.currency,
+    );
+  }
+  const oppHoldingsTotal = linkTwrr(oppMonthly);
+  const oppMonthCount = oppMonthly.filter(
+    (r) => r !== null && Number.isFinite(r),
+  ).length;
+  const opponentHoldingsAnn = cagrFromTotalReturn(
+    oppHoldingsTotal,
+    oppMonthCount,
+  );
+  const opponentEarned = mwrrStatsForValues(data, shadow);
+
+  const youValues = data.periods.map((p) => p.totalNetWorth as number | null);
+  const youYearlyHoldings = new Map(
+    computeYearlyIndexOrPortfolioHoldings(data, null).map((r) => [
+      r.year,
+      r.holdings,
+    ]),
+  );
+  const oppYearlyHoldings = new Map(
+    computeYearlyIndexOrPortfolioHoldings(data, oppMonthly).map((r) => [
+      r.year,
+      r.holdings,
+    ]),
+  );
+
+  const yearly: YearlyOpponentRow[] = listYearWindows(data).map((w) => {
+    const you = simpleReturnForValues(data, youValues, w.openIdx, w.lastIdx);
+    const opponent = simpleReturnForValues(data, shadow, w.openIdx, w.lastIdx);
+    return {
+      year: w.year,
+      fromPeriodId: w.fromPeriodId,
+      toPeriodId: w.toPeriodId,
+      isPartial: w.isPartial,
+      you,
+      opponent,
+      dollarDelta:
+        you && opponent ? you.gain - opponent.gain : null,
+      youHoldings: youYearlyHoldings.get(w.year) ?? null,
+      opponentHoldings: oppYearlyHoldings.get(w.year) ?? null,
+    };
+  });
+
+  return {
+    headline: {
+      opponentId,
+      opponentLabel: meta.label,
+      youEnd,
+      opponentEnd,
+      dollarDelta,
+      youHoldingsAnn: youStats.cagr,
+      opponentHoldingsAnn,
+      youEarnedAnn: youStats.mwrrAnnualized,
+      opponentEarnedAnn: opponentEarned.annualized,
+      monthCount: youStats.monthCount,
+      fromPeriodId: youStats.fromPeriodId,
+      toPeriodId: youStats.toPeriodId,
+    },
+    yearly,
+    twrr: buildBenchmarkComparison(data, bench, "twrr", [opponentId], configs),
+    cashflow: buildBenchmarkComparison(
+      data,
+      bench,
+      "cashflow",
+      [opponentId],
+      configs,
+    ),
+  };
+}
+
+function computeYearlyIndexOrPortfolioHoldings(
+  data: PortfolioData,
+  monthly: Array<number | null> | null,
+): Array<{ year: number; holdings: number | null }> {
+  const series = monthly ?? buildMonthlyPnLSeries(data).twrrMonthly;
+  return listYearWindows(data).map((w) => {
+    const rs: Array<number | null> = [];
+    for (let i = w.firstIdx; i <= w.lastIdx; i++) {
+      if (i === 0) continue;
+      rs.push(series[i] ?? null);
+    }
+    return { year: w.year, holdings: linkTwrr(rs) };
+  });
+}

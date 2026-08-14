@@ -309,9 +309,13 @@ ACCOUNT_COLORS = [
 def institution_slug(institution: str) -> str:
     """Map institution display name to a short stable slug for account ids."""
     t = institution.lower().strip()
+    # Order matters: "Fidelity Employer" before generic "Fidelity"
+    if "fidelity" in t and ("employer" in t or "netbenefits" in t or "net benefits" in t):
+        return "fid-emp"
     aliases = {
         "wealthsimple": "ws",
         "questrade": "qt",
+        "fidelity": "fid",
         "interactive brokers": "ibkr",
         "ibkr": "ibkr",
         "td": "td",
@@ -350,7 +354,7 @@ def map_account_type_label(label: str) -> str:
         return "tfsa"
     if "first home" in t or "fhsa" in t:
         return "fhsa"
-    if "rrsp" in t or "retirement" in t:
+    if "rrsp" in t or "retirement" in t or "401" in t or "ira" in t or "roth" in t:
         return "rrsp"
     # Non-registered margin is still a non-registered taxable account
     if "non-registered" in t or "non registered" in t:

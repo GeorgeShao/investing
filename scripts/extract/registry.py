@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import Callable
 
 from .common import StatementExtract
+from .fidelity_employer import extract_fidelity_employer_pdf
+from .fidelity_personal import extract_fidelity_personal_pdf
 from .questrade import extract_questrade_pdf
 from .wealthsimple import extract_wealthsimple_pdf
 
@@ -39,9 +41,8 @@ def list_parsers() -> list[str]:
     return sorted(_REGISTRY)
 
 
-# Built-in investment brokerage parsers
+# Canonical keys only — match config brokers[].parser (not brokers[].id)
 register_parser("questrade", extract_questrade_pdf)
 register_parser("wealthsimple", extract_wealthsimple_pdf)
-# Common aliases
-register_parser("qt", extract_questrade_pdf)
-register_parser("ws", extract_wealthsimple_pdf)
+register_parser("fidelity_personal", extract_fidelity_personal_pdf)
+register_parser("fidelity_employer", extract_fidelity_employer_pdf)

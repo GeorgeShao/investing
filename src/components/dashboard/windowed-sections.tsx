@@ -1,26 +1,25 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BenchmarkChart } from "@/components/charts/benchmark-chart";
 import { CashFlowChart } from "@/components/charts/cash-flow-chart";
 import { HoldingWeightChart } from "@/components/charts/holding-weight-chart";
 import { MonthlyPnLChart } from "@/components/charts/monthly-pnl-chart";
 import { NetWorthChart } from "@/components/charts/net-worth-chart";
 import { ChartSection } from "@/components/dashboard/chart-section";
 import { ForecastSection } from "@/components/dashboard/forecast-section";
-import { ReturnStatsPanel } from "@/components/dashboard/return-stats";
+import {
+  MissingMonthEstimates,
+  useEstimatedPortfolio,
+} from "@/components/dashboard/missing-month-estimates";
 import { StartWindowToggle } from "@/components/dashboard/start-window-toggle";
+import { VsOpponentSection } from "@/components/dashboard/vs-opponent-section";
 import type {
   AccountGroupConfig,
   BenchmarkConfig,
   ChartStartWindow,
 } from "@/lib/config";
 import type { BenchmarkFile } from "@/lib/benchmarks";
-import {
-  buildMonthlyPnLSeries,
-  computeReturnStats,
-  computeYearlyReturns,
-} from "@/lib/performance";
+import { buildMonthlyPnLSeries } from "@/lib/performance";
 import {
   buildCashFlowSeries,
   buildNetWorthSeries,
@@ -165,71 +164,6 @@ export function WindowedMonthlyPnLSection({
   );
 }
 
-export function WindowedReturnStatsSection({
-  baseData,
-  chartStartWindows,
-  defaultChartStart,
-}: {
-  baseData: PortfolioData;
-  chartStartWindows: ChartStartWindow[];
-  defaultChartStart: string;
-}) {
-  const { start, setStart, data } = useWindowedData(
-    baseData,
-    defaultChartStart,
-    chartStartWindows,
-  );
-  const stats = useMemo(() => computeReturnStats(data), [data]);
-  const yearly = useMemo(() => computeYearlyReturns(data), [data]);
-  return (
-    <ChartSection
-      title="Return statistics"
-      action={
-        <Toggle start={start} setStart={setStart} windows={chartStartWindows} />
-      }
-    >
-      <ReturnStatsPanel stats={stats} yearly={yearly} />
-    </ChartSection>
-  );
-}
-
-export function WindowedBenchmarkSection({
-  baseData,
-  benchmarks,
-  currency,
-  chartStartWindows,
-  defaultChartStart,
-  benchmarkConfigs,
-}: {
-  baseData: PortfolioData;
-  benchmarks: BenchmarkFile;
-  currency: string;
-  chartStartWindows: ChartStartWindow[];
-  defaultChartStart: string;
-  benchmarkConfigs: BenchmarkConfig[];
-}) {
-  const { start, setStart, data } = useWindowedData(
-    baseData,
-    defaultChartStart,
-    chartStartWindows,
-  );
-  return (
-    <ChartSection
-      title="Vs benchmarks"
-      action={
-        <Toggle start={start} setStart={setStart} windows={chartStartWindows} />
-      }
-    >
-      <BenchmarkChart
-        data={data}
-        benchmarks={benchmarks}
-        currency={currency}
-        benchmarkConfigs={benchmarkConfigs}
-      />
-    </ChartSection>
-  );
-}
-
 export function WindowedHoldingWeightSection({
   baseData,
   chartStartWindows,
@@ -266,46 +200,51 @@ export function WindowedSections({
   accountGroups,
   benchmarkConfigs,
 }: WindowedSectionsProps) {
+  const { data, gaps, estimates, defaults, setMonth, resetMonth } =
+    useEstimatedPortfolio(baseData);
+
   return (
     <>
-      <WindowedNetWorthSection
-        baseData={baseData}
-        currency={currency}
-        chartStartWindows={chartStartWindows}
-        defaultChartStart={defaultChartStart}
-        accountGroups={accountGroups}
+      <MissingMonthEstimates
+        gaps={gaps}
+        estimates={estimates}
+        defaults={defaults}
+        onChange={setMonth}
+        onReset={resetMonth}
       />
-      <WindowedCashFlowSection
-        baseData={baseData}
-        currency={currency}
-        chartStartWindows={chartStartWindows}
-        defaultChartStart={defaultChartStart}
-      />
-      <WindowedMonthlyPnLSection
-        baseData={baseData}
-        currency={currency}
-        chartStartWindows={chartStartWindows}
-        defaultChartStart={defaultChartStart}
-      />
-      <WindowedReturnStatsSection
-        baseData={baseData}
-        chartStartWindows={chartStartWindows}
-        defaultChartStart={defaultChartStart}
-      />
-      <WindowedBenchmarkSection
-        baseData={baseData}
+      <VsOpponentSection
+        baseData={data}
         benchmarks={benchmarks}
         currency={currency}
         chartStartWindows={chartStartWindows}
         defaultChartStart={defaultChartStart}
         benchmarkConfigs={benchmarkConfigs}
       />
-      <WindowedHoldingWeightSection
-        baseData={baseData}
+      <WindowedNetWorthSection
+        baseData={data}
+        currency={currency}
+        chartStartWindows={chartStartWindows}
+        defaultChartStart={defaultChartStart}
+        accountGroups={accountGroups}
+      />
+      <WindowedCashFlowSection
+        baseData={data}
+        currency={currency}
         chartStartWindows={chartStartWindows}
         defaultChartStart={defaultChartStart}
       />
-      <ForecastSection data={baseData} currency={currency} />
+      <WindowedMonthlyPnLSection
+        baseData={data}
+        currency={currency}
+        chartStartWindows={chartStartWindows}
+        defaultChartStart={defaultChartStart}
+      />
+      <WindowedHoldingWeightSection
+        baseData={data}
+        chartStartWindows={chartStartWindows}
+        defaultChartStart={defaultChartStart}
+      />
+      <ForecastSection data={data} currency={currency} />
     </>
   );
 }

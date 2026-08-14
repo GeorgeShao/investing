@@ -25,6 +25,7 @@ from extract.common import (  # noqa: E402
 from extract.merge import (  # noqa: E402
     build_portfolio,
     reclassify_internal_transfers,
+    refine_usd_fx,
 )
 from extract.registry import get_parser, list_parsers, register_parser  # noqa: E402
 
@@ -43,6 +44,133 @@ class TestMoneyAndFx(unittest.TestCase):
         assert inv is not None
         self.assertGreater(inv, 1.1)
         self.assertLess(inv, 1.7)
+
+
+class TestRefineUsdFx(unittest.TestCase):
+    def _usd_extract(self, period: str, mv: float) -> StatementExtract:
+        return StatementExtract(
+            source_path="f.pdf",
+            institution="Fidelity",
+            account_number="Z52-1",
+            account_type="non_registered",
+            statement_currency="USD",
+            period_id=period,
+            label=period,
+            start_date=f"{period}-01",
+            end_date=f"{period}-28",
+            market_value=mv,
+            market_value_cad=mv,  # 1:1 until refined
+            deposits=0.0,
+            notes=["missing_fx_rate_usd_assumed_1"],
+            fx_rate=None,
+        )
+
+    def test_prefers_same_period_sibling_over_benchmark(self) -> None:
+        usd = self._usd_extract("2026-07", 1000.0)
+        cad_sib = StatementExtract(
+            source_path="qt.pdf",
+            institution="Questrade",
+            account_number="1",
+            account_type="margin",
+            statement_currency="CAD",
+            period_id="2026-07",
+            label="Jul 2026",
+            start_date="2026-07-01",
+            end_date="2026-07-31",
+            market_value=1.0,
+            market_value_cad=1.0,
+            fx_rate=1.35,
+        )
+        refine_usd_fx([usd, cad_sib], usdcad_by_period={"2026-07": 1.40})
+        self.assertAlmostEqual(usd.fx_rate or 0, 1.35, places=4)
+        self.assertAlmostEqual(usd.market_value_cad, 1350.0, places=2)
+        self.assertIn("fx_rate_filled_from_period_siblings", usd.notes)
+
+    def test_falls_back_to_exact_month_usdcad_benchmark(self) -> None:
+        usd = self._usd_extract("2026-07", 1000.0)
+        refine_usd_fx([usd], usdcad_by_period={"2026-07": 1.40112})
+        self.assertAlmostEqual(usd.fx_rate or 0, 1.40112, places=5)
+        self.assertAlmostEqual(usd.market_value_cad, 1401.12, places=2)
+        self.assertIn("fx_rate_filled_from_usdcad_benchmark", usd.notes)
+        self.assertNotIn("missing_fx_rate_usd_assumed_1", usd.notes)
+
+    def test_never_uses_neighboring_month_usdcad(self) -> None:
+        usd = self._usd_extract("2026-07", 100.0)
+        refine_usd_fx([usd], usdcad_by_period={"2026-06": 1.42, "2026-08": 1.41})
+        self.assertIsNone(usd.fx_rate)
+        self.assertAlmostEqual(usd.market_value_cad, 100.0, places=2)
+        self.assertIn("missing_fx_rate_usd_assumed_1", usd.notes)
+
+    def test_portfolio_meta_warns_when_exact_month_fx_missing(self) -> None:
+        usd = self._usd_extract("2026-07", 500.0)
+        portfolio, _ = build_portfolio(
+            [usd],
+            [],
+            currency="CAD",
+            usdcad_by_period={"2026-06": 1.42},  # wrong month only
+            institution_slugs={"Fidelity": "fid"},
+        )
+        warnings = portfolio["meta"].get("warnings") or []
+        self.assertEqual(len(warnings), 1)
+        self.assertEqual(warnings[0]["code"], "usd_missing_exact_month_fx")
+        self.assertEqual(warnings[0]["periodId"], "2026-07")
+
+    def test_portfolio_meta_warns_when_positive_account_missing_from_latest_month(
+        self,
+    ) -> None:
+        def cad(period: str, number: str, mv: float) -> StatementExtract:
+            return StatementExtract(
+                source_path=f"{number}-{period}.pdf",
+                institution="Questrade",
+                account_number=number,
+                account_type="rrsp" if number == "RRSP" else "margin",
+                statement_currency="CAD",
+                period_id=period,
+                label=period,
+                start_date=f"{period}-01",
+                end_date=f"{period}-28",
+                market_value=mv,
+                market_value_cad=mv,
+            )
+
+        portfolio, _ = build_portfolio(
+            [
+                cad("2026-06", "RRSP", 16793.76),
+                cad("2026-06", "MARGIN", 1000.0),
+                cad("2026-07", "MARGIN", 1100.0),
+            ],
+            [],
+            currency="CAD",
+            institution_slugs={"Questrade": "qt"},
+        )
+        warnings = [
+            w
+            for w in (portfolio["meta"].get("warnings") or [])
+            if w.get("code") == "missing_latest_statement"
+        ]
+        self.assertEqual(len(warnings), 1)
+        self.assertEqual(warnings[0]["accountId"], "qt-rrsp")
+        self.assertEqual(warnings[0]["periodId"], "2026-06")
+        self.assertEqual(warnings[0]["latestPeriodId"], "2026-07")
+        self.assertAlmostEqual(warnings[0]["marketValue"], 16793.76, places=2)
+
+        # $0 last appearance is not a missing statement
+        closed, _ = build_portfolio(
+            [
+                cad("2026-06", "RRSP", 0.0),
+                cad("2026-06", "MARGIN", 1000.0),
+                cad("2026-07", "MARGIN", 1100.0),
+            ],
+            [],
+            currency="CAD",
+            institution_slugs={"Questrade": "qt"},
+        )
+        closed_warn = [
+            w
+            for w in (closed["meta"].get("warnings") or [])
+            if w.get("code") == "missing_latest_statement"
+        ]
+        self.assertEqual(closed_warn, [])
 
 
 class TestStableAccountId(unittest.TestCase):
@@ -66,10 +194,19 @@ class TestStableAccountId(unittest.TestCase):
 class TestRegistry(unittest.TestCase):
     def test_builtin_parsers_registered(self) -> None:
         names = list_parsers()
-        self.assertIn("questrade", names)
-        self.assertIn("wealthsimple", names)
+        self.assertEqual(
+            names,
+            [
+                "fidelity_employer",
+                "fidelity_personal",
+                "questrade",
+                "wealthsimple",
+            ],
+        )
         self.assertTrue(callable(get_parser("questrade")))
-        self.assertTrue(callable(get_parser("ws")))
+        self.assertTrue(callable(get_parser("wealthsimple")))
+        self.assertTrue(callable(get_parser("fidelity_personal")))
+        self.assertTrue(callable(get_parser("fidelity_employer")))
 
     def test_register_fictional_broker_without_touching_merge(self) -> None:
         def fake_parser(path: str | Path) -> StatementExtract:

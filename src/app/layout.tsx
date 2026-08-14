@@ -6,7 +6,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "investing — portfolio analytics",
   description:
-    "Local investment analytics from brokerage statement PDFs: net worth, cash flows, TWRR, MWRR, and benchmark comparison.",
+    "Local investment analytics from brokerage statement PDFs: same-paycheck comparison to QQQ, holdings growth, net worth, and cash flows.",
 };
 
 export default function RootLayout({
