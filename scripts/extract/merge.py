@@ -627,8 +627,8 @@ def _missing_latest_statement_warnings(
                 "message": (
                     f"{name} had a positive month-end balance in {last_period} "
                     f"({last_mv:,.2f}) but does not appear in {latest_id}, "
-                    f"the latest month in this extract. Net worth and returns "
-                    f"omit that account until a statement is added."
+                    f"the latest month in this extract. Portfolio totals and "
+                    f"returns omit that account until a statement is added."
                 ),
             }
         )

@@ -93,8 +93,8 @@ export function WindowedNetWorthSection({
   );
   return (
     <ChartSection
-      title="Net worth over time"
-      description="Stacked month-end balances by account, with total net worth trajectory overlaid."
+      title="Portfolio value over time"
+      description="Stacked month-end brokerage balances by account. Bank cash, credit cards, and other debt are not included."
       action={
         <Toggle start={start} setStart={setStart} windows={chartStartWindows} />
       }
@@ -181,7 +181,7 @@ export function WindowedHoldingWeightSection({
   return (
     <ChartSection
       title="Position weights over time"
-      description="Stocks, options, and cash across all accounts. Toggle Asset mix (always 100%) vs % of equity (can exceed 100% with margin)."
+      description="Stocks, options, and cash in brokerage accounts. Toggle Asset mix (always 100%) vs % of equity (can exceed 100% with margin)."
       action={
         <Toggle start={start} setStart={setStart} windows={chartStartWindows} />
       }

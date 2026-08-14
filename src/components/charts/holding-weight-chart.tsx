@@ -28,9 +28,9 @@ const MODE_COPY: Record<
   },
   equity: {
     label: "% of equity",
-    aria: "Share of portfolio net worth (may exceed 100%)",
+    aria: "Share of brokerage portfolio value (may exceed 100%)",
     footnote:
-      "Each segment is market value ÷ month-end net worth (all accounts, CAD). Stacks can exceed 100% when positions are larger than equity (margin / leverage), or fall short when cash/positions are incomplete.",
+      "Each segment is market value ÷ month-end brokerage portfolio value (all accounts, CAD). Stacks can exceed 100% when positions are larger than equity (margin / leverage), or fall short when cash/positions are incomplete.",
   },
 };
 
@@ -48,7 +48,7 @@ function buildOption(
     emphasis: { focus: "series" as const },
   }));
 
-  // Plain (wrapping) legend like Net worth — no horizontal scroll pager.
+  // Plain (wrapping) legend like the portfolio-value chart — no horizontal scroll pager.
   // Reserve grid space so multi-line legends do not overlap the plot.
   const approxItemsPerRow = 6;
   const legendRows = Math.max(

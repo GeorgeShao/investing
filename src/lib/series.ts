@@ -75,7 +75,7 @@ function balanceFor(period: Period, accountId: string): number {
 }
 
 /**
- * Build stacked-bar + total trajectory series for Net Worth Over Time.
+ * Build stacked-bar + total trajectory series for portfolio value over time.
  * Pass accountGroups to render several accounts as one combined series.
  */
 export function buildNetWorthSeries(

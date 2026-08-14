@@ -94,7 +94,7 @@ function warningForAccount(
       `${label} had a positive month-end balance in ${last.periodId} ` +
       `(${lastMv.toLocaleString("en-CA", { maximumFractionDigits: 2 })}) ` +
       `but does not appear in ${latest.id}, the latest month in this extract. ` +
-      `Net worth and returns omit that account until a statement is added.`,
+      `Portfolio totals and returns omit that account until a statement is added.`,
   };
 }
 

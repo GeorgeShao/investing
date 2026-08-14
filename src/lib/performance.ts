@@ -1,5 +1,5 @@
 /**
- * Pure portfolio performance math from month-end net worth + external cash flows.
+ * Pure portfolio performance math from month-end brokerage value + external cash flows.
  * External flow F_t = deposits_t − withdrawals_t (internal transfers excluded upstream).
  */
 
@@ -39,7 +39,7 @@ export interface ReturnStats {
   /** First / last period ids in the analysis window */
   fromPeriodId: string | null;
   toPeriodId: string | null;
-  /** Start / end net worth */
+  /** Start / end portfolio market value */
   startNetWorth: number | null;
   endNetWorth: number | null;
 }
@@ -49,7 +49,7 @@ export function externalNetFlow(deposits: number, withdrawals: number): number {
 }
 
 /**
- * Monthly dollar P&L: change in net worth not explained by external deposits/withdrawals.
+ * Monthly dollar P&L: change in portfolio value not explained by external deposits/withdrawals.
  * P&L_t = V_t − V_{t-1} − (deposits_t − withdrawals_t)
  */
 export function monthlyDollarPnL(

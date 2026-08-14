@@ -167,7 +167,7 @@ export function ForecastSection({ data, currency }: ForecastSectionProps) {
               aria-label="Starting principal"
             />
             <p className="text-muted-foreground text-[11px]">
-              Default: latest net worth ({formatMoney(defaults.principal, currency)})
+              Default: latest portfolio value ({formatMoney(defaults.principal, currency)})
             </p>
           </div>
 

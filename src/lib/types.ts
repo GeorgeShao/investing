@@ -131,7 +131,7 @@ export interface PortfolioData {
   periods: Period[];
 }
 
-/** Chart series payload for net worth stacked bars + total line. */
+/** Chart series payload for portfolio-value stacked bars + total. */
 export interface NetWorthSeries {
   periods: string[];
   periodIds: string[];
@@ -157,7 +157,7 @@ export interface CashFlowSeries {
 
 /**
  * Position weight chart modes:
- * - equity: value / month-end net worth (may exceed 100% with margin)
+ * - equity: value / month-end portfolio value (may exceed 100% with margin)
  * - assetMix: value / sum(securities + cash) that month (always totals 100%)
  */
 export type HoldingWeightMode = "equity" | "assetMix";
@@ -172,7 +172,7 @@ export interface HoldingWeightSeries {
    * equity mode → totalNetWorth; assetMix → sum of plotted asset CAD values.
    */
   denominators: number[];
-  /** Portfolio total net worth (CAD) per period (equity), for reference. */
+  /** Portfolio total (CAD) per period (equity), for reference. */
   totals: number[];
   instruments: Array<{
     /** Stable id (ticker, OCC option root, or CASH). */

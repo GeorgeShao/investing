@@ -4,7 +4,7 @@ Local-first **investment analytics** from brokerage statement PDFs.
 
 Drop monthly statements in a configured folder layout, extract them into a broker-agnostic portfolio document, and explore:
 
-- Net worth over time (stacked by account)
+- Portfolio value over time (stacked by brokerage account; bank cash and debt not included)
 - External cash flows (deposits / withdrawals; internal transfers excluded)
 - Monthly P&amp;L and time-weighted monthly returns
 - **TWRR**, **CAGR**, **MWRR** (total and annualized), yearly breakdowns
@@ -192,7 +192,7 @@ Add pure helpers under `src/lib/`, unit-test them, then drop a new chart into `w
 
 Dashboard **Forecast** section (`ForecastSection`) lets you customize:
 
-- starting principal (defaults to latest net worth)
+- starting principal (defaults to latest portfolio value)
 - contribution **amount per event** and **frequency** (none / weekly / biweekly / monthly / quarterly / annually)
 - **start date**, optional **end date**, or open-ended **horizon years**
 - annual return %: **min**, **expected**, **max**, and **historical** (defaults from portfolio CAGR when available)

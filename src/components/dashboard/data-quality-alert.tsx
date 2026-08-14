@@ -62,7 +62,7 @@ export function DataQualityAlert({ warnings }: DataQualityAlertProps) {
               These accounts had a positive month-end balance the last time they
               appeared, but there is no statement in the newest month. That
               usually means a PDF has not arrived yet — not that the account
-              went to zero. Latest net worth and returns omit this money until
+              went to zero. Latest portfolio totals and returns omit this money until
               you add the statement and re-run extract.
             </p>
             <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
@@ -129,7 +129,7 @@ function FxWarningBlock({ warnings }: { warnings: PortfolioWarning[] }) {
         <strong>exact statement month</strong> (same-period statement FX or
         month-end <code className="text-xs">USDCAD</code> in{" "}
         <code className="text-xs">data/benchmarks.json</code>). Neighboring
-        months are never used. CAD net worth for those rows is unconverted
+        months are never used. CAD portfolio totals for those rows are unconverted
         until you fix this.
       </p>
       {periods.length > 0 && (

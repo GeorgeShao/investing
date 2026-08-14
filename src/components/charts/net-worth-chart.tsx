@@ -35,7 +35,7 @@ function buildOption(series: NetWorthSeries, currency: string): EChartsOption {
     tooltip: {
       trigger: "axis",
       axisPointer: { type: "shadow" },
-      // Stacked accounts + total net worth (no separate total line on the chart).
+      // Stacked accounts + portfolio total (no separate total line on the chart).
       formatter: (raw) => {
         type TipItem = {
           dataIndex?: number;
@@ -75,7 +75,7 @@ function buildOption(series: NetWorthSeries, currency: string): EChartsOption {
           lines.push(
             `<div style="display:flex;align-items:center;gap:6px;line-height:1.5;margin-top:4px;padding-top:4px;border-top:1px solid #e2e8f0">` +
               `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#0f172a"></span>` +
-              `<span style="flex:1;font-weight:600">Total net worth</span>` +
+              `<span style="flex:1;font-weight:600">Portfolio total</span>` +
               `<span style="font-variant-numeric:tabular-nums;font-weight:600">${formatMoney(total, currency)}</span>` +
               `</div>`,
           );
@@ -134,7 +134,7 @@ export function NetWorthChart({
     <EChartsWrapper
       option={option}
       height={height}
-      ariaLabel="Net worth over time stacked by account"
+      ariaLabel="Portfolio value over time stacked by account"
     />
   );
 }

@@ -156,7 +156,7 @@ export function MonthlyPnLChart({
       />
       <p className="text-muted-foreground text-xs">
         {mode === "dollar"
-          ? "Dollar P&L: Δ net worth − external deposits + withdrawals."
+          ? "Dollar P&L: change in brokerage portfolio value − external deposits + withdrawals."
           : "Percent return: monthly Modified Dietz TWRR (V_t − V_{t−1} − F) / (V_{t−1} + ½F). Blank when average capital ≤ 0."}
       </p>
     </div>
