@@ -559,3 +559,51 @@ export function decimalToPercent(decimal: number): number {
   if (!Number.isFinite(decimal)) return 0;
   return decimal * 100;
 }
+
+/** Default long-run planning rate shown as the expected path. */
+export const PLANNING_ANNUAL_RETURN_PCT = 7;
+
+export const HORIZON_YEAR_OPTIONS = [5, 10, 20, 30] as const;
+
+/**
+ * One-decimal percent for rate chips / inputs from a decimal return.
+ * Returns null when the rate is missing.
+ */
+export function ratePercentFromDecimal(decimal: number | null): number | null {
+  if (decimal == null || !Number.isFinite(decimal)) return null;
+  return Math.round(decimalToPercent(decimal) * 10) / 10;
+}
+
+/**
+ * Typical monthly contribution from a lookback of monthly deposit totals.
+ *
+ * Includes $0 months so a sporadic depositor is not treated as depositing
+ * every month. Drops the single largest month when it is more than half the
+ * lookback total (one-off transfers should not set the going-forward paycheck).
+ * Rounds to `step` dollars (default $50).
+ */
+export function typicalMonthlyDeposits(
+  monthlyDeposits: number[],
+  options?: { step?: number; outlierShare?: number },
+): { amount: number; droppedOutlier: boolean; monthsUsed: number } {
+  const step = options?.step ?? 50;
+  const outlierShare = options?.outlierShare ?? 0.5;
+  const xs = monthlyDeposits.map((n) =>
+    Number.isFinite(n) && n > 0 ? n : 0,
+  );
+  if (xs.length === 0) {
+    return { amount: 0, droppedOutlier: false, monthsUsed: 0 };
+  }
+  const total = xs.reduce((sum, n) => sum + n, 0);
+  const max = Math.max(...xs);
+  let used = xs;
+  let droppedOutlier = false;
+  if (xs.length >= 3 && total > 0 && max > total * outlierShare) {
+    const idx = xs.indexOf(max);
+    used = xs.filter((_, i) => i !== idx);
+    droppedOutlier = true;
+  }
+  const avg = used.reduce((sum, n) => sum + n, 0) / used.length;
+  const amount = Math.round(avg / step) * step;
+  return { amount, droppedOutlier, monthsUsed: used.length };
+}

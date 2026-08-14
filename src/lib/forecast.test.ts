@@ -9,8 +9,10 @@ import {
   percentToDecimal,
   periodsPerYear,
   projectBalance,
+  ratePercentFromDecimal,
   resolveHorizonYears,
   totalContributionsOverYears,
+  typicalMonthlyDeposits,
   yearsBetweenDates,
 } from "@/lib/forecast";
 
@@ -269,5 +271,43 @@ describe("buildForecastSeries / buildForecastProjection", () => {
     expect(series.totalContributions).toBe(12000);
     expect(series.terminal.historical).toBeNull();
     expect(series.points[0].historical).toBeNull();
+  });
+});
+
+describe("typicalMonthlyDeposits", () => {
+  it("averages the lookback including $0 months and rounds to $50", () => {
+    const { amount, droppedOutlier, monthsUsed } = typicalMonthlyDeposits([
+      500, 500, 500, 0, 500, 500, 500, 0, 500, 500, 500, 500,
+    ]);
+    expect(droppedOutlier).toBe(false);
+    expect(monthsUsed).toBe(12);
+    // 5000 / 12 = 416.67 → 400
+    expect(amount).toBe(400);
+  });
+
+  it("drops a one-off transfer that is more than half the lookback total", () => {
+    const deposits = [
+      7500, 0, 12055, 8384, 5462, 1558, 0, 0, 0, 0, 13, 127745,
+    ];
+    const { amount, droppedOutlier, monthsUsed } = typicalMonthlyDeposits(
+      deposits,
+    );
+    expect(droppedOutlier).toBe(true);
+    expect(monthsUsed).toBe(11);
+    const withoutJuly = deposits.slice(0, 11).reduce((s, n) => s + n, 0);
+    expect(amount).toBe(Math.round(withoutJuly / 11 / 50) * 50);
+  });
+
+  it("returns 0 when every month is empty", () => {
+    expect(typicalMonthlyDeposits([0, 0, 0]).amount).toBe(0);
+    expect(typicalMonthlyDeposits([]).amount).toBe(0);
+  });
+});
+
+describe("ratePercentFromDecimal", () => {
+  it("rounds to one decimal percent", () => {
+    expect(ratePercentFromDecimal(0.14123)).toBe(14.1);
+    expect(ratePercentFromDecimal(-0.012)).toBe(-1.2);
+    expect(ratePercentFromDecimal(null)).toBeNull();
   });
 });

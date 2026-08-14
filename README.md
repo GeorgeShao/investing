@@ -192,13 +192,13 @@ Add pure helpers under `src/lib/`, unit-test them, then drop a new chart into `w
 
 Dashboard **Forecast** section (`ForecastSection`) lets you customize:
 
-- starting principal (defaults to latest portfolio value)
-- contribution **amount per event** and **frequency** (none / weekly / biweekly / monthly / quarterly / annually)
-- **start date**, optional **end date**, or open-ended **horizon years**
-- annual return %: **min**, **expected**, **max**, and **historical** (defaults from portfolio CAGR when available)
-- compounding frequency
+- starting principal (defaults to latest portfolio value; stays in sync until you edit it)
+- contribution **amount per event** and **frequency** (defaults from typical monthly deposits over the last 12 months, ignoring a one-off transfer)
+- **start date**, optional **end date**, or horizon chips (5 / 10 / 20 / 30 years)
+- planning band: **min / expected / max** (defaults 3 / 7 / 12)
+- **If this continues** path with chips: your holdings %/year (same window as You vs QQQ), opponent holdings %/year, or 7% planning
 
-All paths are computed by pure `buildForecastProjection` in `src/lib/forecast.ts` and plotted with ECharts (min / expected / max / historical).
+All paths are computed by pure `buildForecastProjection` in `src/lib/forecast.ts` and plotted with ECharts (min / expected / max / what-if).
 
 ---
 

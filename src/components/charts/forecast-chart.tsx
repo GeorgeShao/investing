@@ -9,6 +9,8 @@ export interface ForecastChartProps {
   series: ForecastSeries;
   currency?: string;
   height?: number;
+  /** Legend / series name for the optional what-if path. */
+  historicalLabel?: string;
 }
 
 const COLORS = {
@@ -26,7 +28,11 @@ function formatMoney(value: number, currency: string): string {
   }).format(value);
 }
 
-function buildOption(series: ForecastSeries, currency: string): EChartsOption {
+function buildOption(
+  series: ForecastSeries,
+  currency: string,
+  historicalLabel: string,
+): EChartsOption {
   const labels = series.points.map((p) => p.label);
   const hasHistorical = series.points.some(
     (p) => p.historical != null && Number.isFinite(p.historical),
@@ -79,7 +85,7 @@ function buildOption(series: ForecastSeries, currency: string): EChartsOption {
   if (hasHistorical) {
     seriesList.push(
       line(
-        "Historical",
+        historicalLabel,
         series.points.map((p) => p.historical),
         COLORS.historical,
         2,
@@ -137,10 +143,11 @@ export function ForecastChart({
   series,
   currency = "CAD",
   height = 400,
+  historicalLabel = "Your holdings",
 }: ForecastChartProps) {
   const option = useMemo(
-    () => buildOption(series, currency),
-    [series, currency],
+    () => buildOption(series, currency, historicalLabel),
+    [series, currency, historicalLabel],
   );
 
   if (series.points.length === 0) {
@@ -155,7 +162,7 @@ export function ForecastChart({
     <EChartsWrapper
       option={option}
       height={height}
-      ariaLabel="Investment forecast min expected max and historical scenarios"
+      ariaLabel="Investment forecast min expected max and what-if scenarios"
     />
   );
 }

@@ -244,7 +244,14 @@ export function WindowedSections({
         chartStartWindows={chartStartWindows}
         defaultChartStart={defaultChartStart}
       />
-      <ForecastSection data={data} currency={currency} />
+      <ForecastSection
+        data={data}
+        currency={currency}
+        benchmarks={benchmarks}
+        benchmarkConfigs={benchmarkConfigs}
+        chartStartWindows={chartStartWindows}
+        defaultChartStart={defaultChartStart}
+      />
     </>
   );
 }
