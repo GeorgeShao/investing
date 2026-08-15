@@ -193,7 +193,7 @@ Add pure helpers under `src/lib/`, unit-test them, then drop a new chart into `w
 Dashboard **Forecast** section (`ForecastSection`) lets you customize:
 
 - starting principal (defaults to latest portfolio value; stays in sync until you edit it)
-- contribution **amount per event** and **frequency** (defaults from typical monthly deposits over the last 12 months, ignoring a one-off transfer)
+- contribution **amount per event** and **frequency** (amount defaults to 0)
 - **start date**, optional **end date**, or horizon chips (5 / 10 / 20 / 30 years)
 - planning band: **min / expected / max** (defaults 3 / 7 / 12)
 - **If this continues** path with chips: your holdings %/year (same window as You vs QQQ), opponent holdings %/year, or 7% planning

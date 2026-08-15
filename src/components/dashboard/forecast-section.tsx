@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { ForecastChart } from "@/components/charts/forecast-chart";
 import { ChartSection } from "@/components/dashboard/chart-section";
 import { Button } from "@/components/ui/button";
+import { NumericField } from "@/components/ui/numeric-field";
 import type { BenchmarkConfig, ChartStartWindow } from "@/lib/config";
 import {
   computeOpponentComparison,
@@ -18,7 +19,6 @@ import {
   buildForecastProjection,
   percentToDecimal,
   ratePercentFromDecimal,
-  typicalMonthlyDeposits,
   type ContributionFrequency,
 } from "@/lib/forecast";
 import { computeReturnStats } from "@/lib/performance";
@@ -132,8 +132,6 @@ export function ForecastSection({
     const opponentPct = ratePercentFromDecimal(
       comparison?.headline.opponentHoldingsAnn ?? null,
     );
-    const lookback = data.periods.slice(-12).map((p) => p.cashFlows.deposits);
-    const contrib = typicalMonthlyDeposits(lookback);
     const startFromData = latest?.id ?? todayMonth();
     return {
       principal,
@@ -141,17 +139,13 @@ export function ForecastSection({
       holdingsPct,
       opponentPct,
       opponentLabel: comparison?.headline.opponentLabel ?? opponentId,
-      contributionAmount: String(contrib.amount),
-      droppedOutlier: contrib.droppedOutlier,
       startDate: startFromData.length === 7 ? startFromData : todayMonth(),
       windowLabel,
     };
   }, [data, windowStart, windowLabel, benchmarks, benchmarkConfigs]);
 
   const [principal, setPrincipal] = useSyncedDefault(defaults.principalText);
-  const [contributionAmount, setContributionAmount] = useSyncedDefault(
-    defaults.contributionAmount,
-  );
+  const [contributionAmount, setContributionAmount] = useState("0");
   const [frequency, setFrequency] =
     useState<ContributionFrequency>("monthly");
   const [startDate, setStartDate] = useSyncedDefault(defaults.startDate);
@@ -261,9 +255,6 @@ export function ForecastSection({
   };
 
   const horizonNum = Number(horizonYears);
-  const contribHint = defaults.droppedOutlier
-    ? `Default: average monthly deposits over the last 12 months, ignoring one large transfer (${formatMoney(Number(defaults.contributionAmount), currency)}).`
-    : `Default: average monthly deposits over the last 12 months (${formatMoney(Number(defaults.contributionAmount), currency)}).`;
 
   return (
     <ChartSection
@@ -274,14 +265,13 @@ export function ForecastSection({
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <div className="space-y-1.5">
             <Label htmlFor="fc-principal">Starting principal</Label>
-            <input
+            <NumericField
               id="fc-principal"
-              type="number"
               min={0}
               step={100}
               className={fieldClassName()}
               value={principal}
-              onChange={(e) => setPrincipal(e.target.value)}
+              onValueChange={setPrincipal}
               aria-label="Starting principal"
             />
             <p className="text-muted-foreground text-[11px]">
@@ -292,18 +282,20 @@ export function ForecastSection({
 
           <div className="space-y-1.5">
             <Label htmlFor="fc-contrib">Contribution amount</Label>
-            <input
+            <NumericField
               id="fc-contrib"
-              type="number"
               min={0}
               step={50}
               className={fieldClassName()}
               value={contributionAmount}
-              onChange={(e) => setContributionAmount(e.target.value)}
+              onValueChange={setContributionAmount}
               aria-label="Contribution amount per event"
               disabled={frequency === "none"}
             />
-            <p className="text-muted-foreground text-[11px]">{contribHint}</p>
+            <p className="text-muted-foreground text-[11px]">
+              Default 0 — project the current balance only. Per contribution
+              event, not annual total.
+            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -399,39 +391,36 @@ export function ForecastSection({
 
           <div className="space-y-1.5">
             <Label htmlFor="fc-min">Min annual return %</Label>
-            <input
+            <NumericField
               id="fc-min"
-              type="number"
               step={0.1}
               className={fieldClassName()}
               value={minPct}
-              onChange={(e) => setMinPct(e.target.value)}
+              onValueChange={setMinPct}
               aria-label="Minimum annual return percent"
             />
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="fc-exp">Expected annual return %</Label>
-            <input
+            <NumericField
               id="fc-exp"
-              type="number"
               step={0.1}
               className={fieldClassName()}
               value={expectedPct}
-              onChange={(e) => setExpectedPct(e.target.value)}
+              onValueChange={setExpectedPct}
               aria-label="Expected annual return percent"
             />
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="fc-max">Max annual return %</Label>
-            <input
+            <NumericField
               id="fc-max"
-              type="number"
               step={0.1}
               className={fieldClassName()}
               value={maxPct}
-              onChange={(e) => setMaxPct(e.target.value)}
+              onValueChange={setMaxPct}
               aria-label="Maximum annual return percent"
             />
           </div>
@@ -450,15 +439,14 @@ export function ForecastSection({
               </label>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <input
+              <NumericField
                 id="fc-hist"
-                type="number"
                 step={0.1}
                 className={cn(fieldClassName(), "sm:max-w-[8rem]")}
                 value={historicalPct}
-                onChange={(e) => {
+                onValueChange={(v) => {
                   setRatePreset("custom");
-                  setCustomHistoricalPct(e.target.value);
+                  setCustomHistoricalPct(v);
                 }}
                 disabled={!includeHistorical}
                 aria-label="If this continues annual return percent"

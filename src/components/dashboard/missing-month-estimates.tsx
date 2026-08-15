@@ -8,6 +8,7 @@ import {
   AlertTitle,
 } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { NumericField } from "@/components/ui/numeric-field";
 import {
   applyEstimates,
   clearMonthEstimate,
@@ -181,45 +182,42 @@ export function MissingMonthEstimates({
                           {periodId}
                         </td>
                         <td className="py-1.5 pr-3">
-                          <input
-                            type="number"
+                          <NumericField
                             step={1}
                             className={fieldClassName()}
                             aria-label={`${gap.name} ${periodId} ending value`}
                             value={est?.marketValue ?? ""}
-                            onChange={(e) =>
+                            onValueChange={(v) =>
                               onChange(gap.accountId, periodId, {
-                                marketValue: Number(e.target.value),
+                                marketValue: Number(v),
                               })
                             }
                           />
                         </td>
                         <td className="py-1.5 pr-3">
-                          <input
-                            type="number"
+                          <NumericField
                             step={1}
                             min={0}
                             className={fieldClassName()}
                             aria-label={`${gap.name} ${periodId} deposits`}
                             value={est?.deposits ?? 0}
-                            onChange={(e) =>
+                            onValueChange={(v) =>
                               onChange(gap.accountId, periodId, {
-                                deposits: Number(e.target.value),
+                                deposits: Number(v),
                               })
                             }
                           />
                         </td>
                         <td className="py-1.5 pr-3">
-                          <input
-                            type="number"
+                          <NumericField
                             step={1}
                             min={0}
                             className={fieldClassName()}
                             aria-label={`${gap.name} ${periodId} withdrawals`}
                             value={est?.withdrawals ?? 0}
-                            onChange={(e) =>
+                            onValueChange={(v) =>
                               onChange(gap.accountId, periodId, {
-                                withdrawals: Number(e.target.value),
+                                withdrawals: Number(v),
                               })
                             }
                           />
