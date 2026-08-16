@@ -16,6 +16,11 @@ export interface ChartStartWindow {
 export interface AccountGroupConfig {
   name: string;
   memberIds: string[];
+  /**
+   * True when this sleeve was never trying to beat the index (e.g. a 401(k)).
+   * Stock-pick / skill scores exclude these accounts.
+   */
+  notTryingToBeatIndex?: boolean;
 }
 
 export interface BrokerConfig {

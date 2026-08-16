@@ -23,6 +23,12 @@ import {
   buildNetWorthSeries,
   sliceFromPeriodId,
 } from "@/lib/series";
+import {
+  HOUSEHOLD_SLEEVE_ID,
+  filterPortfolioToSleeve,
+  resolveSleeve,
+  type SleeveOption,
+} from "@/lib/sleeves";
 import type {
   CashFlowSeries,
   HoldingWeightSeries,
@@ -32,6 +38,7 @@ import type {
 
 export interface AnalysisInputs {
   startPeriodId: string;
+  sleeveId?: string;
   accountGroups?: AccountGroupConfig[];
   benchmarks?: BenchmarkFile;
   opponentId?: string;
@@ -40,6 +47,7 @@ export interface AnalysisInputs {
 
 export interface WindowedAnalysis {
   startPeriodId: string;
+  sleeve: SleeveOption;
   fromPeriodId: string | null;
   toPeriodId: string | null;
   data: PortfolioData;
@@ -80,7 +88,13 @@ export function buildWindowedAnalysis(
   inputs: AnalysisInputs,
 ): WindowedAnalysis {
   const start = resolveStartPeriodId(data, inputs.startPeriodId);
-  const sliced = start ? sliceFromPeriodId(data, start) : data;
+  const windowed = start ? sliceFromPeriodId(data, start) : data;
+  const sleeve = resolveSleeve(
+    windowed,
+    inputs.sleeveId ?? HOUSEHOLD_SLEEVE_ID,
+    inputs.accountGroups ?? [],
+  );
+  const sliced = filterPortfolioToSleeve(windowed, sleeve);
   const first = sliced.periods[0]?.id ?? null;
   const last = sliced.periods.at(-1)?.id ?? null;
 
@@ -110,6 +124,7 @@ export function buildWindowedAnalysis(
 
   return {
     startPeriodId: start,
+    sleeve,
     fromPeriodId: first,
     toPeriodId: last,
     data: sliced,

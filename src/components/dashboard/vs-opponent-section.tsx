@@ -18,6 +18,7 @@ export interface VsOpponentSectionProps {
   selectedId: string;
   onOpponentChange: (id: string) => void;
   currency: string;
+  sleeveLabel?: string;
 }
 
 function formatMoney(value: number | null, currency: string): string {
@@ -136,9 +137,12 @@ export function VsOpponentSection({
   selectedId,
   onOpponentChange,
   currency,
+  sleeveLabel,
 }: VsOpponentSectionProps) {
   const ids = opponentIds;
   const label = comparison?.headline.opponentLabel ?? selectedId;
+  const who =
+    sleeveLabel && sleeveLabel !== "Household" ? `You (${sleeveLabel})` : "You";
   const cashOption = useMemo(
     () =>
       comparison
@@ -156,7 +160,7 @@ export function VsOpponentSection({
 
   return (
     <ChartSection
-      title={`You vs ${label}`}
+      title={`${who} vs ${label}`}
       description="Two scores. Dollars first: would the same paychecks in the index have made you richer? Then: did the stocks you held grow faster, ignoring when the paycheck landed."
     >
       {ids.length === 0 || !comparison ? (
