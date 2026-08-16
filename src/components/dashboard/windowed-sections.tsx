@@ -123,6 +123,7 @@ export function WindowedSections({
         sleeveLabel={analysis.sleeve.label}
         pain={analysis.pain}
         attribution={analysis.attribution}
+        fees={analysis.fees}
       />
       <ChartSection
         title="Portfolio value over time"

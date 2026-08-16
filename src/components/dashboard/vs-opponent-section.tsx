@@ -7,6 +7,7 @@ import { ChartSection } from "@/components/dashboard/chart-section";
 import { Button } from "@/components/ui/button";
 import type { GapAttribution } from "@/lib/attribution";
 import type { BenchmarkSeries, OpponentComparison } from "@/lib/benchmarks";
+import type { FeeDrag } from "@/lib/fees";
 import type { OpponentPain, PathPain } from "@/lib/pain";
 import { formatPercent } from "@/lib/performance";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ export interface VsOpponentSectionProps {
   sleeveLabel?: string;
   pain?: OpponentPain | null;
   attribution?: GapAttribution | null;
+  fees?: FeeDrag | null;
 }
 
 function formatMoney(value: number | null, currency: string): string {
@@ -144,6 +146,7 @@ export function VsOpponentSection({
   sleeveLabel,
   pain,
   attribution,
+  fees,
 }: VsOpponentSectionProps) {
   const ids = opponentIds;
   const label = comparison?.headline.opponentLabel ?? selectedId;
@@ -294,6 +297,22 @@ export function VsOpponentSection({
               support="Ignores when the paycheck landed. This is the number that is fair vs other people and vs a published index return."
             />
           </div>
+
+          {fees ? (
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              You paid{" "}
+              <span className="text-foreground tabular-nums">
+                {formatMoney(fees.youPaid, currency)}
+              </span>{" "}
+              in extracted fees. {label}&apos;s {fees.merLabel} MER on the same
+              deposits would have been{" "}
+              <span className="text-foreground tabular-nums">
+                {formatMoney(fees.opponentDrag, currency)}
+              </span>
+              .{" "}
+              <span className="text-xs">({fees.merSource})</span>
+            </p>
+          ) : null}
 
           {attribution ? (
             <AttributionTable
