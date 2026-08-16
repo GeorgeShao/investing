@@ -127,6 +127,9 @@ export function ForecastSection({
     endDate,
     inflationPct,
     goalTarget,
+    minPct,
+    expectedPct,
+    maxPct,
   } = plan;
   const typicalText = String(typicalMonthlyDeposit);
   const amountDisplay =
@@ -138,11 +141,6 @@ export function ForecastSection({
   const [todayDollars, setTodayDollars] = useState(true);
   const [startDate, setStartDate] = useSyncedDefault(defaults.startDate);
   const [horizonYears, setHorizonYears] = useState("20");
-  const [minPct, setMinPct] = useState("3");
-  const [expectedPct, setExpectedPct] = useState(
-    String(PLANNING_ANNUAL_RETURN_PCT),
-  );
-  const [maxPct, setMaxPct] = useState("12");
   const [includeHistorical, setIncludeHistorical] = useState(true);
   const [ratePreset, setRatePreset] = useState<RatePreset>(
     defaults.holdingsPct != null ? "holdings" : "planning",
@@ -422,7 +420,7 @@ export function ForecastSection({
               step={0.1}
               className={fieldClassName()}
               value={minPct}
-              onValueChange={setMinPct}
+              onValueChange={(v) => updatePlan({ minPct: v })}
               aria-label="Minimum annual return percent"
             />
           </div>
@@ -434,7 +432,7 @@ export function ForecastSection({
               step={0.1}
               className={fieldClassName()}
               value={expectedPct}
-              onValueChange={setExpectedPct}
+              onValueChange={(v) => updatePlan({ expectedPct: v })}
               aria-label="Expected annual return percent"
             />
           </div>
@@ -446,7 +444,7 @@ export function ForecastSection({
               step={0.1}
               className={fieldClassName()}
               value={maxPct}
-              onValueChange={setMaxPct}
+              onValueChange={(v) => updatePlan({ maxPct: v })}
               aria-label="Maximum annual return percent"
             />
           </div>

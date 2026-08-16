@@ -21,6 +21,9 @@ describe("sanitizeForecastPlan", () => {
         endDate: "2033-11",
         inflationPct: "2.5",
         goalTarget: "1000000",
+        minPct: "2",
+        expectedPct: "8",
+        maxPct: "15",
       }),
     ).toEqual({
       contributionAmount: "500",
@@ -29,6 +32,9 @@ describe("sanitizeForecastPlan", () => {
       endDate: "2033-11",
       inflationPct: "2.5",
       goalTarget: "1000000",
+      minPct: "2",
+      expectedPct: "8",
+      maxPct: "15",
     });
   });
 
@@ -79,5 +85,19 @@ describe("sanitizeForecastPlan", () => {
   it("keeps in-progress inflation and goal drafts", () => {
     expect(sanitizeForecastPlan({ inflationPct: "2." }).inflationPct).toBe("2.");
     expect(sanitizeForecastPlan({ goalTarget: "0." }).goalTarget).toBe("0.");
+  });
+
+  it("defaults missing planning rates to 3 / 7 / 12", () => {
+    const plan = sanitizeForecastPlan({});
+    expect(plan.minPct).toBe("3");
+    expect(plan.expectedPct).toBe("7");
+    expect(plan.maxPct).toBe("12");
+  });
+
+  it("keeps negative and in-progress planning rates", () => {
+    expect(sanitizeForecastPlan({ minPct: "-2" }).minPct).toBe("-2");
+    expect(sanitizeForecastPlan({ expectedPct: "-" }).expectedPct).toBe("-");
+    expect(sanitizeForecastPlan({ maxPct: "12." }).maxPct).toBe("12.");
+    expect(sanitizeForecastPlan({ minPct: "nope" }).minPct).toBe("3");
   });
 });

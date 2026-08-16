@@ -33,7 +33,7 @@ function subscribe(listener: () => void): () => void {
 }
 
 /**
- * Persist forecast contribution, end-date, inflation, and goal prefs.
+ * Persist forecast contribution, rates, end-date, inflation, and goal prefs.
  * Server / first paint uses defaults; localStorage applies after hydrate.
  */
 export function useForecastPlanPrefs(): [

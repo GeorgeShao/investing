@@ -1,10 +1,10 @@
 /**
- * Browser prefs for the forecast contribution, end-date, inflation, and
- * goal-amount controls. Principal and rates stay computed; data.json is
- * untouched.
+ * Browser prefs for forecast plan fields. Principal and the historical
+ * rate chip stay computed; data.json is untouched.
  */
 
 import {
+  PLANNING_ANNUAL_RETURN_PCT,
   parsePlanDate,
   type ContributionFrequency,
 } from "@/lib/forecast";
@@ -27,6 +27,9 @@ export interface ForecastPlanPrefs {
   endDate: string;
   inflationPct: string;
   goalTarget: string;
+  minPct: string;
+  expectedPct: string;
+  maxPct: string;
 }
 
 export const DEFAULT_FORECAST_PLAN: ForecastPlanPrefs = {
@@ -37,6 +40,9 @@ export const DEFAULT_FORECAST_PLAN: ForecastPlanPrefs = {
   endDate: "",
   inflationPct: "2",
   goalTarget: "",
+  minPct: "3",
+  expectedPct: String(PLANNING_ANNUAL_RETURN_PCT),
+  maxPct: "12",
 };
 
 function isFrequency(v: unknown): v is ContributionFrequency {
@@ -50,6 +56,22 @@ function sanitizeAmount(raw: unknown, fallback: string): string {
   if (s === "" || s === "." || s === "0.") return s;
   if (!Number.isFinite(Number(s)) || Number(s) < 0) return fallback;
   return s;
+}
+
+/** Planning rates may be negative; keep `-` / `.` drafts typeable. */
+const RATE_DRAFT = /^-?(\d+\.?\d*|\.\d*)?$/;
+
+function sanitizeRatePct(raw: unknown, fallback: string): string {
+  if (raw === undefined || raw === null) return fallback;
+  if (typeof raw !== "string" && typeof raw !== "number") return fallback;
+  const s = String(raw).trim();
+  if (s === "" || RATE_DRAFT.test(s)) {
+    if (s === "" || s === "-" || s === "." || s === "-." || s === "0." || s === "-0.") {
+      return s;
+    }
+    if (Number.isFinite(Number(s))) return s;
+  }
+  return fallback;
 }
 
 /**
@@ -92,6 +114,12 @@ export function sanitizeForecastPlan(raw: unknown): ForecastPlanPrefs {
       obj.goalTarget,
       DEFAULT_FORECAST_PLAN.goalTarget,
     ),
+    minPct: sanitizeRatePct(obj.minPct, DEFAULT_FORECAST_PLAN.minPct),
+    expectedPct: sanitizeRatePct(
+      obj.expectedPct,
+      DEFAULT_FORECAST_PLAN.expectedPct,
+    ),
+    maxPct: sanitizeRatePct(obj.maxPct, DEFAULT_FORECAST_PLAN.maxPct),
   };
 }
 
