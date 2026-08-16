@@ -14,6 +14,8 @@ Drop monthly statements into a folder, extract them on your machine, and explore
 
 Everything runs on your computer. No sign-in, no cloud, and no bank or credit-card statements — brokerage / investment accounts only.
 
+Charts, forecasts, and other dollar amounts are **CAD**. USD statements are converted when you extract (from the PDF’s rate, or month-end USDCAD if you fetch benchmarks). Returns and weights are percentages, so they are the same in any currency.
+
 ---
 
 ## Supported statements
@@ -24,8 +26,8 @@ Monthly **investment / brokerage** PDFs only — not bank or credit-card stateme
 |--------|-----------------|-------|
 | **Questrade** | Monthly account statement | CAD and USD accounts |
 | **Wealthsimple** | Monthly brokerage statement | TFSA, RRSP, FHSA, RESP, margin, and cash accounts |
-| **Fidelity** (personal) | *Investment Report* (brokerage / BrokerageLink) | USD statements; shown in your portfolio currency |
-| **Fidelity** (employer) | NetBenefits workplace / employer-plan statement | Same as personal Fidelity |
+| **Fidelity** (personal) | *Investment Report* (brokerage / BrokerageLink) | USD; converted to CAD |
+| **Fidelity** (employer) | NetBenefits workplace / employer-plan statement | USD; converted to CAD |
 
 If your broker is not listed, you can add support — see [Adding a brokerage](#adding-a-brokerage).
 
