@@ -11,9 +11,13 @@ import {
   HORIZON_YEAR_OPTIONS,
   PLANNING_ANNUAL_RETURN_PCT,
   buildForecastProjection,
+  monthlyAmountToHitTarget,
   percentToDecimal,
   ratePercentFromDecimal,
+  realDollars,
+  resolveForecastContribution,
   type ContributionFrequency,
+  yearsToTarget,
 } from "@/lib/forecast";
 import { latestPeriod } from "@/lib/series";
 import type { PortfolioData } from "@/lib/types";
@@ -26,6 +30,7 @@ export interface ForecastSectionProps {
   holdingsCagr: number | null;
   opponentHoldingsAnn: number | null;
   opponentLabel: string;
+  typicalMonthlyDeposit: number;
   currency: string;
 }
 
@@ -93,6 +98,7 @@ export function ForecastSection({
   holdingsCagr,
   opponentHoldingsAnn,
   opponentLabel,
+  typicalMonthlyDeposit,
   currency,
 }: ForecastSectionProps) {
   const defaults = useMemo(() => {
@@ -115,6 +121,16 @@ export function ForecastSection({
   const [principal, setPrincipal] = useSyncedDefault(defaults.principalText);
   const [plan, updatePlan] = useForecastPlanPrefs();
   const { contributionAmount, frequency, useEndDate, endDate } = plan;
+  const typicalText = String(typicalMonthlyDeposit);
+  const amountDisplay =
+    contributionAmount === "" ? typicalText : contributionAmount;
+  const resolvedContribution = resolveForecastContribution(
+    contributionAmount,
+    typicalMonthlyDeposit,
+  );
+  const [todayDollars, setTodayDollars] = useState(true);
+  const [inflationPct, setInflationPct] = useState("2");
+  const [goalTarget, setGoalTarget] = useState("");
   const [startDate, setStartDate] = useSyncedDefault(defaults.startDate);
   const [horizonYears, setHorizonYears] = useState("20");
   const [minPct, setMinPct] = useState("3");
@@ -167,7 +183,7 @@ export function ForecastSection({
 
   const series = useMemo(() => {
     const p = Number(principal);
-    const amt = Number(contributionAmount);
+    const amt = resolvedContribution;
     const min = Number(minPct);
     const exp = Number(expectedPct);
     const max = Number(maxPct);
@@ -195,7 +211,7 @@ export function ForecastSection({
     });
   }, [
     principal,
-    contributionAmount,
+    resolvedContribution,
     frequency,
     startDate,
     endDate,
@@ -220,6 +236,39 @@ export function ForecastSection({
   };
 
   const horizonNum = Number(horizonYears);
+  const inflationRate = percentToDecimal(Number(inflationPct));
+  const showAsToday = (nominal: number) =>
+    todayDollars
+      ? realDollars(nominal, series.years, inflationRate)
+      : nominal;
+  const goal = Number(goalTarget);
+  const expectedRate = percentToDecimal(
+    Number.isFinite(Number(expectedPct)) ? Number(expectedPct) : 0,
+  );
+  const principalNum = Number(principal);
+  const yearsUntilGoal =
+    Number.isFinite(goal) && goal > 0
+      ? yearsToTarget(
+          Number.isFinite(principalNum) && principalNum >= 0
+            ? principalNum
+            : 0,
+          expectedRate,
+          resolvedContribution,
+          frequency,
+          goal,
+        )
+      : null;
+  const monthlyToGoal =
+    Number.isFinite(goal) && goal > 0
+      ? monthlyAmountToHitTarget(
+          Number.isFinite(principalNum) && principalNum >= 0
+            ? principalNum
+            : 0,
+          expectedRate,
+          series.years,
+          goal,
+        )
+      : null;
 
   return (
     <ChartSection
@@ -252,14 +301,15 @@ export function ForecastSection({
               min={0}
               step={50}
               className={fieldClassName()}
-              value={contributionAmount}
+              value={amountDisplay}
               onValueChange={(v) => updatePlan({ contributionAmount: v })}
               aria-label="Contribution amount per event"
               disabled={frequency === "none"}
             />
             <p className="text-muted-foreground text-[11px]">
-              Default 0 — project the current balance only. Per contribution
-              event, not annual total. Saved in this browser.
+              Default: typical deposits since {defaults.windowLabel} (
+              {formatMoney(typicalMonthlyDeposit, currency)}/mo). Per event,
+              not annual total. Saved when you edit.
             </p>
           </div>
 
@@ -496,18 +546,82 @@ export function ForecastSection({
             value={formatMoney(series.totalContributions, currency)}
           />
           <SummaryCard
-            label="Expected terminal"
-            value={formatMoney(series.terminal.expected, currency)}
+            label={todayDollars ? "Expected (today’s $)" : "Expected terminal"}
+            value={formatMoney(showAsToday(series.terminal.expected), currency)}
           />
           {includeHistorical && series.terminal.historical != null ? (
             <SummaryCard
-              label={`${pathLabel} terminal`}
-              value={formatMoney(series.terminal.historical, currency)}
+              label={`${pathLabel} ${todayDollars ? "(today’s $)" : "terminal"}`}
+              value={formatMoney(
+                showAsToday(series.terminal.historical),
+                currency,
+              )}
             />
           ) : null}
           <SummaryCard
-            label="Range (min – max)"
-            value={`${formatMoney(series.terminal.min, currency)} – ${formatMoney(series.terminal.max, currency)}`}
+            label={todayDollars ? "Range (today’s $)" : "Range (min – max)"}
+            value={`${formatMoney(showAsToday(series.terminal.min), currency)} – ${formatMoney(showAsToday(series.terminal.max), currency)}`}
+          />
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="fc-infl">Inflation %</Label>
+              <label className="text-muted-foreground flex items-center gap-1.5 text-[11px]">
+                <input
+                  type="checkbox"
+                  checked={todayDollars}
+                  onChange={(e) => setTodayDollars(e.target.checked)}
+                  className="size-3.5 rounded border"
+                />
+                Today&apos;s dollars
+              </label>
+            </div>
+            <NumericField
+              id="fc-infl"
+              min={0}
+              step={0.1}
+              className={fieldClassName()}
+              value={inflationPct}
+              onValueChange={setInflationPct}
+              disabled={!todayDollars}
+              aria-label="Inflation percent"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="fc-goal">Goal amount</Label>
+            <NumericField
+              id="fc-goal"
+              min={0}
+              step={1000}
+              className={fieldClassName()}
+              value={goalTarget}
+              onValueChange={setGoalTarget}
+              aria-label="Goal target amount"
+            />
+            <p className="text-muted-foreground text-[11px]">
+              When do I hit this, and what monthly amount hits it by the
+              horizon.
+            </p>
+          </div>
+          <SummaryCard
+            label="Years to goal"
+            value={
+              yearsUntilGoal == null
+                ? goalTarget.trim()
+                  ? "Not in 80 years"
+                  : "—"
+                : `${yearsUntilGoal.toFixed(yearsUntilGoal % 1 === 0 ? 0 : 1)} y`
+            }
+          />
+          <SummaryCard
+            label={`Monthly to hit by ${series.years.toFixed(series.years % 1 === 0 ? 0 : 1)}y`}
+            value={
+              monthlyToGoal == null
+                ? "—"
+                : formatMoney(monthlyToGoal, currency)
+            }
           />
         </div>
 
@@ -527,6 +641,10 @@ export function ForecastSection({
               : ratePreset === "planning"
                 ? "the same 7% planning rate as expected"
                 : "the rate you typed"}
+          . Terminals{" "}
+          {todayDollars
+            ? `are in today’s dollars at ${inflationPct || "0"}% inflation`
+            : "are nominal (not adjusted for inflation)"}
           . This is a planning tool, not a guarantee of future results.
         </p>
       </div>

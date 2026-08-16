@@ -155,6 +155,7 @@ export function WindowedSections({
         holdingsCagr={analysis.holdingsCagr}
         opponentHoldingsAnn={analysis.opponentHoldingsAnn}
         opponentLabel={analysis.opponentLabel}
+        typicalMonthlyDeposit={analysis.typicalMonthlyDeposit}
         currency={currency}
       />
     </>

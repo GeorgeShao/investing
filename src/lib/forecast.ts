@@ -676,6 +676,121 @@ export function ratePercentFromDecimal(decimal: number | null): number | null {
  * lookback total (one-off transfers should not set the going-forward paycheck).
  * Rounds to `step` dollars (default $50).
  */
+/**
+ * Today's dollars: strip inflation from a nominal terminal.
+ * `inflationRate` is a decimal annual rate (0.02 = 2%).
+ */
+export function realDollars(
+  nominal: number,
+  years: number,
+  inflationRate: number,
+): number {
+  if (!Number.isFinite(nominal)) return 0;
+  if (!(years > 0) || !Number.isFinite(inflationRate) || inflationRate <= -1) {
+    return nominal;
+  }
+  return nominal / Math.pow(1 + inflationRate, years);
+}
+
+/**
+ * Invert {@link projectBalance}: years until the path reaches `target`.
+ * Returns null if the target is never hit within 80 years.
+ */
+export function yearsToTarget(
+  principal: number,
+  annualRate: number,
+  contributionAmount: number,
+  frequency: ContributionFrequency,
+  target: number,
+  compounding: CompoundingFrequency = "monthly",
+): number | null {
+  if (!Number.isFinite(target) || !Number.isFinite(principal)) return null;
+  if (principal >= target) return 0;
+  const annual = annualContributionFromAmount(contributionAmount, frequency);
+  const n = periodsPerYear(compounding);
+  const atSteps = (steps: number) =>
+    projectBalance(
+      principal,
+      annualRate,
+      steps / n,
+      annual,
+      frequency,
+      compounding,
+    );
+  const maxSteps = 80 * n;
+  if (atSteps(maxSteps) < target) return null;
+  let lo = 0;
+  let hi = maxSteps;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (atSteps(mid) >= target) hi = mid;
+    else lo = mid + 1;
+  }
+  return lo / n;
+}
+
+/**
+ * Invert {@link projectBalance}: monthly contribution that hits `target`
+ * in `years`. Returns 0 if the rate alone is enough.
+ */
+export function monthlyAmountToHitTarget(
+  principal: number,
+  annualRate: number,
+  years: number,
+  target: number,
+  compounding: CompoundingFrequency = "monthly",
+): number | null {
+  if (!(years > 0) || !Number.isFinite(target) || !Number.isFinite(principal)) {
+    return null;
+  }
+  if (principal >= target) return 0;
+  const none = projectBalance(
+    principal,
+    annualRate,
+    years,
+    0,
+    "none",
+    compounding,
+  );
+  if (none >= target) return 0;
+  const at = (amount: number) => {
+    const annual = annualContributionFromAmount(amount, "monthly");
+    return projectBalance(
+      principal,
+      annualRate,
+      years,
+      annual,
+      "monthly",
+      compounding,
+    );
+  };
+  let lo = 0;
+  let hi = Math.max(target, 1);
+  for (let k = 0; k < 48 && at(hi) < target; k++) hi *= 2;
+  if (at(hi) < target) return null;
+  for (let i = 0; i < 64; i++) {
+    const mid = (lo + hi) / 2;
+    if (at(mid) >= target) hi = mid;
+    else lo = mid;
+  }
+  return hi;
+}
+
+/** Empty / missing stored amount follows typical window deposits. */
+export function resolveForecastContribution(
+  storedAmount: string,
+  typicalMonthly: number,
+): number {
+  const trimmed = storedAmount.trim();
+  if (trimmed === "") {
+    return Number.isFinite(typicalMonthly) && typicalMonthly > 0
+      ? typicalMonthly
+      : 0;
+  }
+  const n = Number(trimmed);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
 export function typicalMonthlyDeposits(
   monthlyDeposits: number[],
   options?: { step?: number; outlierShare?: number },

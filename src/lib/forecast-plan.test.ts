@@ -50,7 +50,12 @@ describe("sanitizeForecastPlan", () => {
 
   it("rejects a negative contribution", () => {
     expect(sanitizeForecastPlan({ contributionAmount: "-10" }).contributionAmount).toBe(
-      "0",
+      "",
     );
+  });
+
+  it("treats a missing amount as follow-typical, not zero", () => {
+    expect(sanitizeForecastPlan({}).contributionAmount).toBe("");
+    expect(DEFAULT_FORECAST_PLAN.contributionAmount).toBe("");
   });
 });

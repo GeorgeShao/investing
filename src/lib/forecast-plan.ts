@@ -27,7 +27,8 @@ export interface ForecastPlanPrefs {
 }
 
 export const DEFAULT_FORECAST_PLAN: ForecastPlanPrefs = {
-  contributionAmount: "0",
+  /** Empty means follow typical deposits from the analysis window. */
+  contributionAmount: "",
   frequency: "monthly",
   useEndDate: false,
   endDate: "",
@@ -38,11 +39,14 @@ function isFrequency(v: unknown): v is ContributionFrequency {
 }
 
 function sanitizeAmount(raw: unknown): string {
+  if (raw === undefined || raw === null) {
+    return DEFAULT_FORECAST_PLAN.contributionAmount;
+  }
   if (typeof raw !== "string" && typeof raw !== "number") {
     return DEFAULT_FORECAST_PLAN.contributionAmount;
   }
   const s = String(raw).trim();
-  if (s === "" || s === "." || s === "0.") return s === "" ? "0" : s;
+  if (s === "" || s === "." || s === "0.") return s;
   if (!Number.isFinite(Number(s)) || Number(s) < 0) {
     return DEFAULT_FORECAST_PLAN.contributionAmount;
   }

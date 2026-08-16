@@ -7,14 +7,18 @@ import {
   contributionPerEvent,
   labelForYearOffset,
   listForecastTickMonths,
+  monthlyAmountToHitTarget,
   percentToDecimal,
   periodsPerYear,
   projectBalance,
   ratePercentFromDecimal,
+  realDollars,
+  resolveForecastContribution,
   resolveHorizonYears,
   totalContributionsOverYears,
   typicalMonthlyDeposits,
   yearsBetweenDates,
+  yearsToTarget,
 } from "@/lib/forecast";
 
 describe("contribution helpers", () => {
@@ -388,6 +392,60 @@ describe("typicalMonthlyDeposits", () => {
   it("returns 0 when every month is empty", () => {
     expect(typicalMonthlyDeposits([0, 0, 0]).amount).toBe(0);
     expect(typicalMonthlyDeposits([]).amount).toBe(0);
+  });
+});
+
+describe("resolveForecastContribution", () => {
+  it("uses typical deposits when the stored amount is empty", () => {
+    expect(resolveForecastContribution("", 400)).toBe(400);
+    expect(resolveForecastContribution("  ", 400)).toBe(400);
+    expect(resolveForecastContribution("0", 400)).toBe(0);
+    expect(resolveForecastContribution("250", 400)).toBe(250);
+  });
+});
+
+describe("yearsToTarget / monthlyAmountToHitTarget", () => {
+  it("inverts projectBalance at 0% for years-to-target", () => {
+    const years = yearsToTarget(0, 0, 1000, "monthly", 12000, "monthly");
+    expect(years).not.toBeNull();
+    expect(years!).toBeCloseTo(1, 2);
+    const terminal = projectBalance(
+      0,
+      0,
+      years!,
+      annualContributionFromAmount(1000, "monthly"),
+      "monthly",
+      "monthly",
+    );
+    expect(terminal).toBeGreaterThanOrEqual(12000);
+  });
+
+  it("inverts projectBalance for monthly amount to hit a date", () => {
+    const amt = monthlyAmountToHitTarget(0, 0, 2, 24000, "monthly");
+    expect(amt).not.toBeNull();
+    expect(amt!).toBeCloseTo(1000, 0);
+    const terminal = projectBalance(
+      0,
+      0,
+      2,
+      annualContributionFromAmount(amt!, "monthly"),
+      "monthly",
+      "monthly",
+    );
+    expect(terminal).toBeGreaterThanOrEqual(24000);
+    expect(terminal).toBeCloseTo(24000, 0);
+  });
+});
+
+describe("realDollars", () => {
+  it("deflates a long-horizon terminal by (1+i)^years", () => {
+    const nominal = 200_000;
+    const years = 20;
+    const i = 0.02;
+    const today = realDollars(nominal, years, i);
+    expect(today).toBeCloseTo(nominal / Math.pow(1.02, 20), 8);
+    expect(today).toBeLessThan(nominal);
+    expect(realDollars(nominal, 0, i)).toBe(nominal);
   });
 });
 

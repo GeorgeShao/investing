@@ -3,7 +3,7 @@ import { buildWindowedAnalysis, resolveStartPeriodId } from "@/lib/analysis";
 import type { BenchmarkFile } from "@/lib/benchmarks";
 import { computeOpponentComparison } from "@/lib/benchmarks";
 import { computeOpponentPain } from "@/lib/pain";
-import { typicalMonthlyDeposits } from "@/lib/forecast";
+import { resolveForecastContribution, typicalMonthlyDeposits } from "@/lib/forecast";
 import { buildMonthlyPnLSeries, computeReturnStats } from "@/lib/performance";
 import {
   buildCashFlowSeries,
@@ -172,6 +172,13 @@ describe("buildWindowedAnalysis", () => {
     expect(built.typicalMonthlyDeposit).toBe(
       typicalMonthlyDeposits(sliced.periods.map((p) => p.cashFlows.deposits))
         .amount,
+    );
+    expect(built.typicalMonthlyDeposit).toBeGreaterThan(0);
+    expect(resolveForecastContribution("", built.typicalMonthlyDeposit)).toBe(
+      built.typicalMonthlyDeposit,
+    );
+    expect(resolveForecastContribution("", built.typicalMonthlyDeposit)).not.toBe(
+      0,
     );
     expect(built.pain).toEqual(computeOpponentPain(built.comparison!));
   });
