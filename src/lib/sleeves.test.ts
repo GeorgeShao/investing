@@ -261,3 +261,150 @@ describe("sleeve scores on a household fixture", () => {
     expect(tfsa.holdingsCagr).not.toBeCloseTo(margin.holdingsCagr as number, 8);
   });
 });
+
+/**
+ * Matched TFSA → taxable transfer. Household merge parks that move in
+ * transfersIn/Out so it is not a deposit or withdrawal. Same balances,
+ * three encodings of the $400 move.
+ */
+function transferPortfolio(
+  encoding: "transfer" | "flow" | "forgotten",
+): PortfolioData {
+  const tfsaMove =
+    encoding === "transfer"
+      ? { ...flows(0), transfersOut: 400 }
+      : encoding === "flow"
+        ? flows(0, 400)
+        : flows(0);
+  const taxableMove =
+    encoding === "transfer"
+      ? { ...flows(0), transfersIn: 400 }
+      : encoding === "flow"
+        ? flows(400)
+        : flows(0);
+  return {
+    meta: { schemaVersion: 1, currency: "CAD", generatedAt: "test" },
+    accounts: [
+      account("tfsa", "tfsa", "TFSA"),
+      account("taxable", "non_registered", "Taxable"),
+    ],
+    periods: [
+      month(
+        "2024-01",
+        { tfsa: 1000, taxable: 1000 },
+        { tfsa: flows(1000), taxable: flows(1000) },
+      ),
+      month(
+        "2024-02",
+        { tfsa: 600, taxable: 1400 },
+        { tfsa: tfsaMove, taxable: taxableMove },
+      ),
+    ],
+  };
+}
+
+describe("sleeve-external transfers", () => {
+  it("treats a TFSA→taxable transfer as TFSA outflow, not a loss", () => {
+    const asTransfer = transferPortfolio("transfer");
+    const asFlow = transferPortfolio("flow");
+    const forgotten = transferPortfolio("forgotten");
+    const groups: AccountGroupConfig[] = [
+      ...GROUPS,
+      { name: "Taxable", memberIds: ["taxable"] },
+    ];
+    const opts = {
+      startPeriodId: "2024-01",
+      accountGroups: groups,
+      benchmarks: benches,
+      opponentId: "QQQ",
+    };
+
+    const tfsaFromTransfer = buildWindowedAnalysis(asTransfer, {
+      ...opts,
+      sleeveId: TFSA_SLEEVE_ID,
+    });
+    const tfsaFromFlow = buildWindowedAnalysis(asFlow, {
+      ...opts,
+      sleeveId: TFSA_SLEEVE_ID,
+    });
+    const tfsaForgotten = buildWindowedAnalysis(forgotten, {
+      ...opts,
+      sleeveId: TFSA_SLEEVE_ID,
+    });
+
+    expect(tfsaFromTransfer.data.periods[1].cashFlows.withdrawals).toBe(400);
+    expect(tfsaFromTransfer.data.periods[1].cashFlows.deposits).toBe(0);
+    expect(tfsaFromTransfer.comparison?.headline.dollarDelta).toBeCloseTo(
+      tfsaFromFlow.comparison?.headline.dollarDelta as number,
+      8,
+    );
+    expect(
+      tfsaFromTransfer.comparison?.headline.dollarDelta,
+    ).not.toBeCloseTo(
+      tfsaForgotten.comparison?.headline.dollarDelta as number,
+      8,
+    );
+
+    const taxableFromTransfer = buildWindowedAnalysis(asTransfer, {
+      ...opts,
+      sleeveId: groupId("Taxable"),
+    });
+    // Taxable is not a built-in sleeve; use stock-pick? No — filter via a group.
+    expect(taxableFromTransfer.data.accounts.map((a) => a.id)).toEqual([
+      "taxable",
+    ]);
+    expect(taxableFromTransfer.data.periods[1].cashFlows.deposits).toBe(400);
+    expect(taxableFromTransfer.comparison?.headline.dollarDelta).toBeCloseTo(
+      buildWindowedAnalysis(asFlow, {
+        ...opts,
+        sleeveId: groupId("Taxable"),
+      }).comparison?.headline.dollarDelta as number,
+      8,
+    );
+
+    const household = buildWindowedAnalysis(asTransfer, {
+      ...opts,
+      sleeveId: HOUSEHOLD_SLEEVE_ID,
+    });
+    expect(household.data.periods[1].cashFlows.withdrawals).toBe(0);
+    expect(household.data.periods[1].cashFlows.deposits).toBe(0);
+    expect(household.comparison?.headline.dollarDelta).toBeCloseTo(
+      buildWindowedAnalysis(asFlow, {
+        ...opts,
+        sleeveId: HOUSEHOLD_SLEEVE_ID,
+      }).comparison?.headline.dollarDelta as number,
+      8,
+    );
+
+    // Both accounts in one sleeve: the move is intra-sleeve and nets out.
+    const both = filterPortfolioToSleeve(asTransfer, {
+      accountIds: ["tfsa", "taxable"],
+    });
+    expect(both.periods[1].cashFlows.withdrawals).toBe(0);
+    expect(both.periods[1].cashFlows.deposits).toBe(0);
+
+    // Same transfer inside a larger household, subset that still contains
+    // both sides — fold is on, but intra-sleeve net is zero.
+    const wider: PortfolioData = {
+      ...asTransfer,
+      accounts: [...asTransfer.accounts, account("k401", "rrsp", "401k")],
+      periods: asTransfer.periods.map((p) => ({
+        ...p,
+        balances: [
+          ...p.balances,
+          { accountId: "k401", marketValue: 2000 },
+        ],
+        totalNetWorth: p.totalNetWorth + 2000,
+        accountCashFlows: {
+          ...p.accountCashFlows,
+          k401: p.id === "2024-01" ? flows(2000) : flows(0),
+        },
+      })),
+    };
+    const pair = filterPortfolioToSleeve(wider, {
+      accountIds: ["tfsa", "taxable"],
+    });
+    expect(pair.periods[1].cashFlows.withdrawals).toBe(0);
+    expect(pair.periods[1].cashFlows.deposits).toBe(0);
+  });
+});

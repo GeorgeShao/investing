@@ -192,22 +192,54 @@ export function resolveSleeve(
   );
 }
 
+/**
+ * Household merge already parked account-to-account moves in
+ * transfersIn/Out so deposits−withdrawals stay bank-external.
+ * Comparison / TWRR only read deposits−withdrawals. On a subset sleeve,
+ * a transfer that left the sleeve (TFSA → taxable) must become a
+ * withdrawal, and a transfer that entered must become a deposit.
+ * Intra-sleeve transfers net to zero and stay out of P&L.
+ */
+export function foldExternalTransfers(flows: PeriodCashFlows): PeriodCashFlows {
+  const netOut = (flows.transfersOut ?? 0) - (flows.transfersIn ?? 0);
+  return {
+    ...flows,
+    deposits: flows.deposits + (netOut < 0 ? -netOut : 0),
+    withdrawals: flows.withdrawals + (netOut > 0 ? netOut : 0),
+    transfersIn: 0,
+    transfersOut: 0,
+  };
+}
+
+export function isFullHouseholdSelection(
+  data: PortfolioData,
+  accountIds: Set<string>,
+): boolean {
+  const present = presentAccountIds(data);
+  return (
+    present.length === accountIds.size &&
+    present.every((id) => accountIds.has(id))
+  );
+}
+
 export function cashFlowsForAccounts(
   period: Period,
   accountIds: Set<string>,
+  foldExternalTransfersIntoFlows = false,
 ): PeriodCashFlows {
+  let sum: PeriodCashFlows;
   if (period.accountCashFlows) {
-    let sum = emptyCashFlows();
+    sum = emptyCashFlows();
     for (const id of accountIds) {
       sum = addCashFlows(sum, period.accountCashFlows[id]);
     }
-    return sum;
+  } else {
+    const present = period.balances.map((b) => b.accountId);
+    const selectingAll =
+      present.length > 0 && present.every((id) => accountIds.has(id));
+    sum = selectingAll ? { ...period.cashFlows } : emptyCashFlows();
   }
-  const present = period.balances.map((b) => b.accountId);
-  const selectingAll =
-    present.length > 0 && present.every((id) => accountIds.has(id));
-  if (selectingAll) return { ...period.cashFlows };
-  return emptyCashFlows();
+  return foldExternalTransfersIntoFlows ? foldExternalTransfers(sum) : sum;
 }
 
 /**
@@ -219,6 +251,7 @@ export function filterPortfolioToSleeve(
   sleeve: Pick<SleeveOption, "accountIds">,
 ): PortfolioData {
   const keep = new Set(sleeve.accountIds);
+  const foldTransfers = !isFullHouseholdSelection(data, keep);
   return {
     ...data,
     accounts: data.accounts.filter((a) => keep.has(a.id)),
@@ -241,7 +274,7 @@ export function filterPortfolioToSleeve(
         ...period,
         balances,
         totalNetWorth,
-        cashFlows: cashFlowsForAccounts(period, keep),
+        cashFlows: cashFlowsForAccounts(period, keep, foldTransfers),
         accountCashFlows,
         holdings: period.holdings?.filter((h) => keep.has(h.accountId)),
         transactions: period.transactions?.filter((t) => keep.has(t.accountId)),
