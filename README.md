@@ -1,148 +1,158 @@
 # investing
 
-Local-first **investment analytics** from brokerage statement PDFs.
+Local **investment analytics** from brokerage statement PDFs.
 
-Drop monthly statements in a configured folder layout, extract them into a broker-agnostic portfolio document, and explore:
+Drop monthly statements into a folder, extract them on your machine, and explore:
 
-- Portfolio value over time (stacked by brokerage account; bank cash and debt not included)
-- External cash flows (deposits / withdrawals; internal transfers excluded)
-- Monthly P&amp;L and time-weighted monthly returns
-- **TWRR**, **CAGR**, **MWRR** (total and annualized), yearly breakdowns
+- Portfolio value over time (by account — not bank cash or debt)
+- Deposits and withdrawals (transfers between your own accounts are ignored)
+- Monthly profit and loss, and time-weighted monthly returns
+- **TWRR**, **CAGR**, and **MWRR** (see [Metrics](#metrics) for what these mean)
 - Position weights over time
-- Portfolio vs benchmarks (time-weighted growth **or** same external cash flows)
-- **Forecast** multi-scenario projections (contributions, start/end, min/expected/max/historical returns)
+- Your portfolio vs market benchmarks
+- A **forecast** of what continued contributions and returns could look like
 
-Runs entirely on your machine. **No auth, no cloud, no bank/credit-card statements** — investment/brokerage accounts only.
-
-Stack: **Next.js** (App Router) · **pnpm** · **Tailwind** · **shadcn/ui** · **Apache ECharts** · **Python** extractors (`pypdf`, optional `yfinance`).
+Everything runs on your computer. No sign-in, no cloud, and no bank or credit-card statements — brokerage / investment accounts only.
 
 ---
 
-## Quick start
+## Supported statements
+
+Monthly **investment / brokerage** PDFs only — not bank or credit-card statements. Scanned or photo-only PDFs will not work.
+
+| Broker | What to drop in | Notes |
+|--------|-----------------|-------|
+| **Questrade** | Monthly account statement | CAD and USD accounts |
+| **Wealthsimple** | Monthly brokerage statement | TFSA, RRSP, FHSA, RESP, margin, and cash accounts |
+| **Fidelity** (personal) | *Investment Report* (brokerage / BrokerageLink) | USD statements; shown in your portfolio currency |
+| **Fidelity** (employer) | NetBenefits workplace / employer-plan statement | Same as personal Fidelity |
+
+If your broker is not listed, you can add support — see [Adding a brokerage](#adding-a-brokerage).
+
+---
+
+## Setup
+
+You will need [Node.js](https://nodejs.org/) (with [pnpm](https://pnpm.io/)), and Python 3 for reading statements.
+
+### 1. Install and start the app
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Until you extract your statements, the home page shows a **setup alert** with the steps below (no sample portfolio is shipped).
+Open [http://localhost:3000](http://localhost:3000). Charts appear only after you extract statements — there is no sample portfolio.
+
+### 2. Point the app at your statements
 
 ```bash
-pnpm test    # Vitest — performance, series, benchmarks, forecast math
-pnpm build   # production build
+cp config/config.example.json config/config.local.json
 ```
 
-### First-time data setup
+This file stays on your machine (it is not committed). Edit it and set:
+
+- **Where the PDFs live** (`pdfRoot`) — a folder with one subfolder per brokerage
+- **Which brokerages you use** (`brokers`) — keep the rows that match you; delete the rest
+- **Chart start dates** (`chartStartWindows`) — the “From …” buttons on the dashboard (change these to months that matter for you)
+- **Account groups** (optional) — combine related accounts on the net-worth chart (for example a CAD and USD sleeve of the same TFSA)
+
+Suggested folder layout (names must match the `folder` value in your config):
+
+```
+~/Downloads/Monthly PDF Statements/
+  Questrade Monthly PDF Statements/
+    …any subfolders…/*.pdf
+  Wealthsimple Monthly PDF Statements/
+    …
+  Fidelity Personal/
+    …
+  Fidelity Employer/
+    …
+```
+
+Year or account subfolders are fine; every `*.pdf` under each brokerage folder is picked up.
+
+### 3. Extract statements
 
 ```bash
-# 1. Local config (gitignored)
-cp config/config.example.json config/config.local.json
-# edit pdfRoot, chartStartWindows, accountGroups as needed
-
-# 2. Extract brokerage PDFs → data/data.json
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r scripts/requirements.txt
 python scripts/run_extract.py
-
-# 3. Benchmark prices → data/benchmarks.json (for vs-benchmark charts)
-python scripts/fetch_benchmarks.py
 ```
 
-Then reload `pnpm dev`. The dashboard reads `data/data.json` only — regenerate after adding statements.
+Re-run that last command whenever you add new monthly PDFs, then reload the dashboard.
 
----
+### 4. (Optional) Benchmark prices
 
-## Statement layout &amp; config
-
-### Config files
-
-| File | Role |
-|------|------|
-| `config/config.example.json` | Committed defaults (safe paths, sample chart windows, QT + WS brokers) |
-| `config/config.local.json` | **Your** overrides (gitignored) — PDF root, personal start dates, account groups |
-
-```bash
-cp config/config.example.json config/config.local.json
-# edit pdfRoot, chartStartWindows, accountGroups, benchmarks as needed
-```
-
-### Config keys
-
-| Key | Purpose |
-|-----|---------|
-| `pdfRoot` | Root folder containing per-brokerage subfolders (`~` expanded) |
-| `brokers[]` | `{ id, name, folder, parser }` — discovery + which parser to use |
-| `chartStartWindows[]` | `{ id: "YYYY-MM", label }` — dashboard “From …” toggles (e.g. Feb 2022 vs May 2023) |
-| `defaultChartStart` | Which window is selected by default |
-| `accountGroups[]` | Optional display merge for net-worth chart (`name` + `memberIds`) |
-| `currency` | Portfolio base currency (default `CAD`) |
-| `benchmarks[]` | `{ id, yahoo, currency, label? }` for fetch + comparison charts |
-
-### Recommended PDF folder layout
-
-```
-~/Downloads/Monthly PDF Statements/          # pdfRoot
-  Questrade Monthly PDF Statements/          # brokers[0].folder
-    …/**/*.pdf
-  Wealthsimple Monthly PDF Statements/       # brokers[1].folder
-    …/**/*.pdf
-```
-
-Subfolders (by year/account) are fine — discovery is recursive for `*.pdf`.
-
----
-
-## Extract your portfolio
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r scripts/requirements.txt
-
-# optional: point at your PDFs
-# edit config/config.local.json → pdfRoot
-
-python scripts/run_extract.py
-# or: python scripts/run_extract.py --pdf-root "~/path/to/statements"
-# or: python scripts/run_extract.py --list-parsers
-```
-
-Writes (gitignored):
-
-- `data/data.json` — portfolio document (dashboard input when present)
-- `data/extraction-report.json` — coverage, transfer adjustments, errors
-- `data/raw-extracts.json` — extract cache (per-PDF output before merge; reused unless `--force`)
-
-### Refresh benchmarks
+Needed for the “vs benchmark” charts, and for converting USD statements when the PDF has no exchange rate.
 
 ```bash
 python scripts/fetch_benchmarks.py
 ```
 
-Writes `data/benchmarks.json` (gitignored) from Yahoo via `yfinance` using tickers in config. Without this file, portfolio charts still work; the vs-benchmark section has no index series until you fetch.
+Portfolio value, cash flow, and return charts work without this step.
 
 ---
 
-## Portfolio document (schema v2)
+## Forecasting
 
-Single broker-agnostic JSON contract:
+The dashboard can project your portfolio forward. You pick:
 
-- `meta` — `schemaVersion`, `currency`, `generatedAt`, notes, source counts
-- `accounts[]` — investment accounts (`tfsa`, `rrsp`, `fhsa`, `margin`, `non_registered`, …)
-- `periods[]` — month-end rows (`id: YYYY-MM`) with:
-  - `balances[]` — market value in base currency (+ optional cash / native / FX)
-  - `cashFlows` — **external** deposits/withdrawals (+ dividends, interest, transfers\*)
-  - optional `holdings[]`, `transactions[]`, `fxRates`
+- a starting amount (defaults to your latest portfolio value)
+- optional ongoing contributions and how often they happen
+- a time horizon (or a specific end date)
+- a planning band of annual returns (min / expected / max)
 
-\* Internal account-to-account movements are reclassified out of deposits/withdrawals during merge so performance math stays external-flow clean.
+There is also an **If this continues** path that uses recent performance
+instead of the planning band. Nothing here is a recommendation — it is
+compounding math on the assumptions you type in.
+
+---
+
+## Metrics
+
+| Metric | Meaning | Formula |
+|--------|---------|---------|
+| Monthly P&amp;L | Value change that is not from money you added or withdrew | \(V_t - V_{t-1} - F_t\) |
+| Monthly TWRR | That month’s return (deposits/withdrawals treated as month-end) | \((V_t - F_t) / V_{t-1} - 1\) |
+| TWRR (total) | Compounded monthly returns — how the *portfolio* did, ignoring contribution timing | Product of \((1+r_t) - 1\) |
+| CAGR | The same TWRR path, expressed as an annual rate | Annualized over the month count |
+| MWRR | Dollar-weighted return — how *you* did, given when money went in and out | IRR on \(-V_0\), \(-F_t\), terminal \(+V_T\) |
+
+\(V\) is month-end portfolio value. \(F\) is net external cash flow (deposits − withdrawals). Internal transfers between your own accounts are not treated as deposits or withdrawals.
+
+---
+
+## Privacy
+
+This app is meant to run on **your computer**. Statement PDFs, the extracted
+portfolio, and your local config stay local — they are not uploaded anywhere,
+and they are gitignored so they are not committed by accident.
+
+Do not publish your PDF folder or `config/config.local.json` if it has personal
+paths or account groupings.
+
+**Not in scope:** bank accounts, credit cards, live broker logins, or sharing
+a portfolio with other people over the internet.
 
 ---
 
 ## Adding a brokerage
 
-1. **Parser** — implement `extract_<broker>_pdf(path) -> StatementExtract` (see `scripts/extract/questrade.py` / `wealthsimple.py`).
-2. **Register** — `register_parser("mybroker", extract_mybroker_pdf)` in `scripts/extract/registry.py` (or call `register_parser` from your module import).
-3. **Config** — add to `brokers[]`:
+Parsers live in `scripts/extract/`. Copy the file closest to your statements
+(Questrade, Wealthsimple, or one of the Fidelity parsers) and teach it to read:
+
+- the statement month
+- the account number and type (TFSA, RRSP, 401(k), …)
+- month-end value (and cash, if the PDF shows it)
+- deposits and withdrawals
+- holdings, if you want the weight chart
+
+Then:
+
+1. Register the new parser in `scripts/extract/registry.py` (follow the existing lines).
+2. Add a row under `brokers` in `config/config.local.json`:
 
 ```json
 {
@@ -153,73 +163,9 @@ Single broker-agnostic JSON contract:
 }
 ```
 
-4. Put PDFs under `{pdfRoot}/{folder}/` and re-run `run_extract.py`.
+`folder` is the subfolder name under your PDF root. `parser` must match the name you registered.
 
-Merge, FX refinement, transfer reclass, and the dashboard never hard-code only Questrade/Wealthsimple.
-
-Account ids use `stable_account_id(institution, accountNumber, slug=broker.id)` → `{slug}-{account}`.
-
----
-
-## Architecture (extensibility)
-
-```
-config/                 # example + local user config
-data/                   # gitignored extracts + benchmarks (generate locally)
-scripts/extract/
-  common.py             # StatementExtract, money/FX helpers
-  registry.py           # parser discovery by name
-  merge.py              # extracts → portfolio document
-  questrade.py / wealthsimple.py
-scripts/run_extract.py
-scripts/fetch_benchmarks.py
-src/lib/
-  types.ts              # portfolio schema
-  performance.ts        # TWRR / MWRR / P&amp;L (pure)
-  series.ts             # chart series builders (pure)
-  benchmarks.ts         # vs-index comparison (pure)
-  forecast.ts           # return projection math (pure)
-  config.ts             # load example / local config
-src/components/charts/  # Apache ECharts wrappers (incl. forecast)
-src/components/dashboard/  # includes Forecast section
-```
-
-### Future metrics &amp; charts
-
-Add pure helpers under `src/lib/`, unit-test them, then drop a new chart into `windowed-sections.tsx` via `ChartSection`. Domain math stays importable without Next.
-
-### Forecasting
-
-Dashboard **Forecast** section (`ForecastSection`) lets you customize:
-
-- starting principal (defaults to latest portfolio value; stays in sync until you edit it)
-- contribution **amount per event** and **frequency** (amount defaults to 0; amount, frequency, end date, and “use end date” persist in this browser)
-- **start date**, optional **end date**, or horizon chips (5 / 10 / 20 / 30 years)
-- planning band: **min / expected / max** (defaults 3 / 7 / 12)
-- **If this continues** path with chips: your holdings %/year (same window as You vs QQQ), opponent holdings %/year, or 7% planning
-
-All paths are computed by pure `buildForecastProjection` in `src/lib/forecast.ts` and plotted with ECharts (min / expected / max / what-if).
-
----
-
-## Metrics definitions (short)
-
-| Metric | Idea |
-|--------|------|
-| Monthly P&amp;L | \(V_t - V_{t-1} - F_t\) with \(F_t =\) deposits − withdrawals |
-| Monthly TWRR | \((V_t - F_t) / V_{t-1} - 1\) (end-of-period flow approximation) |
-| TWRR total | Product of \((1+r_t) - 1\) |
-| CAGR | Annualized from linked TWRR over month count |
-| MWRR | IRR on \(-V_0\), \(-F_t\), terminal \(+V_T\) |
-
----
-
-## Privacy &amp; scope
-
-- Intended to run **locally** only (for now).
-- **Do not commit** PDFs, `data/data.json`, or `config.local.json` with personal paths/account groups you care about keeping private.
-- **In scope:** brokerage/investment statements (TFSA, RRSP, FHSA, margin, non-registered, …).
-- **Out of scope:** bank accounts, credit cards, live broker APIs, multi-user auth.
+3. Put monthly PDFs in that folder and re-run `python scripts/run_extract.py`.
 
 ---
 
