@@ -121,6 +121,7 @@ export function WindowedSections({
         onOpponentChange={setOpponentId}
         currency={currency}
         sleeveLabel={analysis.sleeve.label}
+        pain={analysis.pain}
       />
       <ChartSection
         title="Portfolio value over time"

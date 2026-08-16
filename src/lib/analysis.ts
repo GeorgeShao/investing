@@ -23,6 +23,7 @@ import {
   buildNetWorthSeries,
   sliceFromPeriodId,
 } from "@/lib/series";
+import { computeOpponentPain, type OpponentPain } from "@/lib/pain";
 import {
   HOUSEHOLD_SLEEVE_ID,
   filterPortfolioToSleeve,
@@ -52,6 +53,7 @@ export interface WindowedAnalysis {
   toPeriodId: string | null;
   data: PortfolioData;
   comparison: OpponentComparison | null;
+  pain: OpponentPain | null;
   netWorth: NetWorthSeries;
   cashFlow: CashFlowSeries;
   pnl: MonthlyPnLSeries;
@@ -129,6 +131,7 @@ export function buildWindowedAnalysis(
     toPeriodId: last,
     data: sliced,
     comparison,
+    pain: comparison ? computeOpponentPain(comparison) : null,
     netWorth: buildNetWorthSeries(sliced, inputs.accountGroups ?? []),
     cashFlow: buildCashFlowSeries(sliced),
     pnl: buildMonthlyPnLSeries(sliced),

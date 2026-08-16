@@ -6,6 +6,7 @@ import { EChartsWrapper } from "@/components/charts/echarts-wrapper";
 import { ChartSection } from "@/components/dashboard/chart-section";
 import { Button } from "@/components/ui/button";
 import type { BenchmarkSeries, OpponentComparison } from "@/lib/benchmarks";
+import type { OpponentPain, PathPain } from "@/lib/pain";
 import { formatPercent } from "@/lib/performance";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +20,7 @@ export interface VsOpponentSectionProps {
   onOpponentChange: (id: string) => void;
   currency: string;
   sleeveLabel?: string;
+  pain?: OpponentPain | null;
 }
 
 function formatMoney(value: number | null, currency: string): string {
@@ -138,6 +140,7 @@ export function VsOpponentSection({
   onOpponentChange,
   currency,
   sleeveLabel,
+  pain,
 }: VsOpponentSectionProps) {
   const ids = opponentIds;
   const label = comparison?.headline.opponentLabel ?? selectedId;
@@ -289,6 +292,8 @@ export function VsOpponentSection({
             />
           </div>
 
+          {pain ? <PainTable pain={pain} opponentLabel={label} /> : null}
+
           <div className="space-y-3">
             <p className="text-sm font-medium">Same deposits, dollar path</p>
             {cashOption ? (
@@ -352,6 +357,81 @@ function VerdictCard({
       <p className="text-muted-foreground mt-2 text-xs leading-relaxed">
         {support}
       </p>
+    </div>
+  );
+}
+
+function underwaterLabel(pain: PathPain): string {
+  if (pain.underwaterMonths === 0) return "0 months";
+  const longest =
+    pain.longestUnderwaterMonths > 0
+      ? `; longest stretch ${pain.longestUnderwaterMonths}`
+      : "";
+  const still = pain.stillUnderwater ? "; still underwater" : "";
+  return `${pain.underwaterMonths} months${longest}${still}`;
+}
+
+function PainTable({
+  pain,
+  opponentLabel,
+}: {
+  pain: OpponentPain;
+  opponentLabel: string;
+}) {
+  const rows: Array<{ label: string; you: string; opp: string }> = [
+    {
+      label: "Max drawdown",
+      you: formatPercent(pain.youHoldings.maxDrawdown),
+      opp: formatPercent(pain.opponentHoldings.maxDrawdown),
+    },
+    {
+      label: "Time underwater",
+      you: underwaterLabel(pain.youHoldings),
+      opp: underwaterLabel(pain.opponentHoldings),
+    },
+    {
+      label: "Worst 12 months",
+      you: formatPercent(pain.youHoldings.worst12m),
+      opp: formatPercent(pain.opponentHoldings.worst12m),
+    },
+  ];
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-medium">Pain next to return</p>
+      <p className="text-muted-foreground text-xs leading-relaxed">
+        Same window and sleeve as the two scores. Drawdown and time underwater
+        are peak-to-trough on $1 left invested. Worst 12 months is the worst
+        exact calendar-year stretch on that path.
+      </p>
+      <div className="border-border overflow-x-auto rounded-lg border">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-muted/50 border-b text-left">
+              <th className="text-muted-foreground px-3 py-2 font-medium">
+                Holdings path
+              </th>
+              <th className="text-muted-foreground px-3 py-2 font-medium">
+                You
+              </th>
+              <th className="text-muted-foreground px-3 py-2 font-medium">
+                {opponentLabel}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr
+                key={row.label}
+                className="border-border border-b last:border-0"
+              >
+                <td className="px-3 py-2">{row.label}</td>
+                <td className="px-3 py-2 tabular-nums">{row.you}</td>
+                <td className="px-3 py-2 tabular-nums">{row.opp}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

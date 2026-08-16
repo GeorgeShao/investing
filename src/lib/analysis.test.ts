@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildWindowedAnalysis, resolveStartPeriodId } from "@/lib/analysis";
 import type { BenchmarkFile } from "@/lib/benchmarks";
 import { computeOpponentComparison } from "@/lib/benchmarks";
+import { computeOpponentPain } from "@/lib/pain";
 import { typicalMonthlyDeposits } from "@/lib/forecast";
 import { buildMonthlyPnLSeries, computeReturnStats } from "@/lib/performance";
 import {
@@ -172,5 +173,6 @@ describe("buildWindowedAnalysis", () => {
       typicalMonthlyDeposits(sliced.periods.map((p) => p.cashFlows.deposits))
         .amount,
     );
+    expect(built.pain).toEqual(computeOpponentPain(built.comparison!));
   });
 });
