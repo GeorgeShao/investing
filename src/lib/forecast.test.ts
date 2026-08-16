@@ -6,6 +6,7 @@ import {
   buildForecastSeries,
   contributionPerEvent,
   labelForYearOffset,
+  listForecastTickMonths,
   percentToDecimal,
   periodsPerYear,
   projectBalance,
@@ -73,14 +74,68 @@ describe("calendar axis labels (leap years)", () => {
       rates: { min: 0.03, expected: 0.1, max: 0.2, historical: 0.31 },
     });
     const labels = series.points.map((p) => p.label);
-    expect(labels[0]).toBe("2027");
-    expect(labels[labels.length - 1]).toBe("2033");
+    expect(labels[0]).toBe("2027-01");
+    expect(labels[labels.length - 1]).toBe("2033-01");
+    expect(labels).toContain("2027-12");
+    expect(labels).toContain("2032-12");
+    expect(labels).not.toContain("2033-12");
     expect(new Set(labels).size).toBe(labels.length);
-    // No duplicate year strings on the axis
-    expect(labels).not.toContainEqual(
-      // sanity: sorted unique calendar years
-      labels.find((l, i) => labels.indexOf(l) !== i),
-    );
+  });
+});
+
+describe("listForecastTickMonths", () => {
+  it("uses December year-ends and keeps a non-December end", () => {
+    expect(listForecastTickMonths("2026-07", "2033-11")).toEqual([
+      "2026-07",
+      "2026-12",
+      "2027-12",
+      "2028-12",
+      "2029-12",
+      "2030-12",
+      "2031-12",
+      "2032-12",
+      "2033-11",
+    ]);
+  });
+
+  it("does not add a December that would fall after the end", () => {
+    const ticks = listForecastTickMonths("2026-07", "2033-11");
+    expect(ticks).not.toContain("2033-12");
+    expect(ticks[ticks.length - 2]).toBe("2032-12");
+  });
+
+  it("includes the end when it is already December", () => {
+    expect(listForecastTickMonths("2026-07", "2033-12")).toEqual([
+      "2026-07",
+      "2026-12",
+      "2027-12",
+      "2028-12",
+      "2029-12",
+      "2030-12",
+      "2031-12",
+      "2032-12",
+      "2033-12",
+    ]);
+  });
+
+  it("skips the start year December when start is already December", () => {
+    expect(listForecastTickMonths("2026-12", "2033-11")).toEqual([
+      "2026-12",
+      "2027-12",
+      "2028-12",
+      "2029-12",
+      "2030-12",
+      "2031-12",
+      "2032-12",
+      "2033-11",
+    ]);
+  });
+
+  it("has no year-end tick when the span never reaches December", () => {
+    expect(listForecastTickMonths("2026-07", "2026-10")).toEqual([
+      "2026-07",
+      "2026-10",
+    ]);
   });
 });
 
@@ -271,6 +326,38 @@ describe("buildForecastSeries / buildForecastProjection", () => {
     expect(series.totalContributions).toBe(12000);
     expect(series.terminal.historical).toBeNull();
     expect(series.points[0].historical).toBeNull();
+  });
+
+  it("plots December year-ends and a non-anniversary end date", () => {
+    const series = buildForecastProjection({
+      principal: 10000,
+      contributionAmount: 0,
+      contributionFrequency: "none",
+      startDate: "2026-07",
+      endDate: "2033-11",
+      rates: { min: 0, expected: 0, max: 0, historical: null },
+    });
+    expect(series.points.map((p) => p.asOf)).toEqual([
+      "2026-07",
+      "2026-12",
+      "2027-12",
+      "2028-12",
+      "2029-12",
+      "2030-12",
+      "2031-12",
+      "2032-12",
+      "2033-11",
+    ]);
+    expect(series.points.map((p) => p.label)).toEqual(
+      series.points.map((p) => p.asOf),
+    );
+    expect(series.points[0].year).toBe(0);
+    expect(series.points[1].year).toBeGreaterThan(0);
+    expect(series.points[1].year).toBeLessThan(1);
+    expect(series.points[series.points.length - 1].year).toBeCloseTo(
+      series.years,
+      8,
+    );
   });
 });
 

@@ -72,9 +72,12 @@ export interface ForecastPlanInputs {
 export interface ForecastPoint {
   /** Years from start (0 at start). */
   year: number;
-  /** Chart label (calendar year when start is parseable, else Y0/Y1…). */
+  /**
+   * Chart label. Dated plans use `YYYY-MM` (December year-ends plus the
+   * real start/end). The years-only API uses Y0 / Y1 / ….
+   */
   label: string;
-  /** Approximate calendar date at this point (YYYY-MM) when start is known. */
+  /** Calendar month at this point (`YYYY-MM`) when start is known. */
   asOf?: string;
   min: number;
   expected: number;
@@ -257,6 +260,22 @@ export function resolveHorizonYears(plan: {
   return 20;
 }
 
+/** End month used for December ticks: explicit end date, else start + horizon. */
+function resolveEndMonth(
+  plan: Pick<ForecastPlanInputs, "startDate" | "endDate">,
+  years: number,
+): string | undefined {
+  const end = plan.endDate?.trim();
+  if (end) {
+    const span = yearsBetweenDates(plan.startDate, end);
+    if (span != null && span > 0) {
+      const parsed = parsePlanDate(end);
+      if (parsed) return formatPlanMonth(parsed);
+    }
+  }
+  return addYearsToStart(plan.startDate, years);
+}
+
 /**
  * Project a single path under constant annual rate with regular contributions.
  *
@@ -383,6 +402,98 @@ export function labelForYearOffset(
 }
 
 /**
+ * Chart months for a dated forecast: start, each December on the path,
+ * then the end month if it is not already December.
+ *
+ * A December after the end is omitted (start 2026-07, end 2033-11 → last
+ * year-end is 2032-12, then 2033-11 — not 2033-12).
+ */
+export function listForecastTickMonths(
+  startRaw: string,
+  endRaw: string,
+): string[] {
+  const start = parsePlanDate(startRaw);
+  const end = parsePlanDate(endRaw);
+  if (!start || !end) return [];
+  const startMonth = formatPlanMonth(start);
+  const endMonth = formatPlanMonth(end);
+  const startYm = start.getUTCFullYear() * 12 + start.getUTCMonth();
+  const endYm = end.getUTCFullYear() * 12 + end.getUTCMonth();
+  if (endYm < startYm) return [startMonth];
+
+  const ticks: string[] = [startMonth];
+  const firstDecYear =
+    start.getUTCMonth() === 11
+      ? start.getUTCFullYear() + 1
+      : start.getUTCFullYear();
+  for (let year = firstDecYear; year <= end.getUTCFullYear(); year++) {
+    const decYm = year * 12 + 11;
+    if (decYm > endYm) break;
+    if (decYm > startYm) ticks.push(`${year}-12`);
+  }
+  if (ticks[ticks.length - 1] !== endMonth) ticks.push(endMonth);
+  return ticks;
+}
+
+function pointAtYear(
+  year: number,
+  label: string,
+  asOf: string | undefined,
+  principal: number,
+  rates: ForecastScenarioRates,
+  annualContribution: number,
+  contributionFrequency: ContributionFrequency,
+  compounding: CompoundingFrequency,
+  contributionAtEnd: boolean,
+): ForecastPoint {
+  const histOk =
+    rates.historical != null && Number.isFinite(rates.historical);
+  return {
+    year,
+    label,
+    asOf,
+    min: projectBalance(
+      principal,
+      rates.min,
+      year,
+      annualContribution,
+      contributionFrequency,
+      compounding,
+      contributionAtEnd,
+    ),
+    expected: projectBalance(
+      principal,
+      rates.expected,
+      year,
+      annualContribution,
+      contributionFrequency,
+      compounding,
+      contributionAtEnd,
+    ),
+    max: projectBalance(
+      principal,
+      rates.max,
+      year,
+      annualContribution,
+      contributionFrequency,
+      compounding,
+      contributionAtEnd,
+    ),
+    historical: histOk
+      ? projectBalance(
+          principal,
+          rates.historical as number,
+          year,
+          annualContribution,
+          contributionFrequency,
+          compounding,
+          contributionAtEnd,
+        )
+      : null,
+  };
+}
+
+/**
  * Build multi-scenario forecast series (legacy years + annual contribution API).
  */
 export function buildForecastSeries(inputs: ForecastInputs): ForecastSeries {
@@ -404,19 +515,19 @@ export function buildForecastSeries(inputs: ForecastInputs): ForecastSeries {
 
   const n = periodsPerYear(compounding);
   const totalSteps = years > 0 ? Math.max(1, Math.round(years * n)) : 0;
-  const points: ForecastPoint[] = [];
-
-  const histOk =
-    rates.historical != null && Number.isFinite(rates.historical);
-
-  points.push({
-    year: 0,
-    label: "Y0",
-    min: principal,
-    expected: principal,
-    max: principal,
-    historical: histOk ? principal : null,
-  });
+  const points: ForecastPoint[] = [
+    pointAtYear(
+      0,
+      "Y0",
+      undefined,
+      principal,
+      rates,
+      annualContribution,
+      contributionFrequency,
+      compounding,
+      contributionAtEnd,
+    ),
+  ];
 
   if (years > 0) {
     const yearMarks = new Set<number>();
@@ -425,52 +536,19 @@ export function buildForecastSeries(inputs: ForecastInputs): ForecastSeries {
 
     for (const y of [...yearMarks].sort((a, b) => a - b)) {
       if (y === 0) continue;
-      const min = projectBalance(
-        principal,
-        rates.min,
-        y,
-        annualContribution,
-        contributionFrequency,
-        compounding,
-        contributionAtEnd,
+      points.push(
+        pointAtYear(
+          y,
+          Number.isInteger(y) ? `Y${y}` : `Y${y.toFixed(1)}`,
+          undefined,
+          principal,
+          rates,
+          annualContribution,
+          contributionFrequency,
+          compounding,
+          contributionAtEnd,
+        ),
       );
-      const expected = projectBalance(
-        principal,
-        rates.expected,
-        y,
-        annualContribution,
-        contributionFrequency,
-        compounding,
-        contributionAtEnd,
-      );
-      const max = projectBalance(
-        principal,
-        rates.max,
-        y,
-        annualContribution,
-        contributionFrequency,
-        compounding,
-        contributionAtEnd,
-      );
-      const historical = histOk
-        ? projectBalance(
-            principal,
-            rates.historical as number,
-            y,
-            annualContribution,
-            contributionFrequency,
-            compounding,
-            contributionAtEnd,
-          )
-        : null;
-      points.push({
-        year: y,
-        label: Number.isInteger(y) ? `Y${y}` : `Y${y.toFixed(1)}`,
-        min,
-        expected,
-        max,
-        historical,
-      });
     }
   }
 
@@ -528,14 +606,30 @@ export function buildForecastProjection(plan: ForecastPlanInputs): ForecastSerie
     contributionAtEnd,
   });
 
-  // Relabel points with calendar dates from plan start when possible.
   const start = plan.startDate?.trim() || "";
-  if (parsePlanDate(start)) {
-    series.points = series.points.map((p) => ({
-      ...p,
-      label: labelForYearOffset(start, p.year),
-      asOf: addYearsToStart(start, p.year),
-    }));
+  const endMonth = resolveEndMonth(plan, years);
+  if (parsePlanDate(start) && endMonth) {
+    series.points = listForecastTickMonths(start, endMonth).map((asOf) => {
+      const y = yearsBetweenDates(start, asOf) ?? 0;
+      return pointAtYear(
+        y,
+        asOf,
+        asOf,
+        Number.isFinite(plan.principal) ? Math.max(0, plan.principal) : 0,
+        plan.rates,
+        annualContribution,
+        contributionFrequency,
+        compounding,
+        contributionAtEnd,
+      );
+    });
+    const last = series.points[series.points.length - 1];
+    series.terminal = {
+      min: last.min,
+      expected: last.expected,
+      max: last.max,
+      historical: last.historical,
+    };
   }
 
   // Prefer exact event count from per-event amount (avoids float annual split).
