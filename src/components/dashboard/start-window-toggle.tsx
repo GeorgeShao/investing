@@ -12,7 +12,7 @@ export interface StartWindowToggleProps {
 }
 
 /**
- * Per-chart analysis start date. Windows come from app config
+ * Shared analysis start date. Windows come from app config
  * (config.example.json / config.local.json), not hard-coded dates.
  */
 export function StartWindowToggle({

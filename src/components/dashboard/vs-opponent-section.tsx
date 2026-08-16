@@ -1,35 +1,23 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import type { EChartsOption } from "echarts";
 import { EChartsWrapper } from "@/components/charts/echarts-wrapper";
 import { ChartSection } from "@/components/dashboard/chart-section";
-import { StartWindowToggle } from "@/components/dashboard/start-window-toggle";
 import { Button } from "@/components/ui/button";
-import type { BenchmarkConfig, ChartStartWindow } from "@/lib/config";
-import {
-  computeOpponentComparison,
-  listBenchmarkIds,
-  pickDefaultOpponentId,
-  type BenchmarkFile,
-  type BenchmarkSeries,
-  type OpponentComparison,
-} from "@/lib/benchmarks";
+import type { BenchmarkSeries, OpponentComparison } from "@/lib/benchmarks";
 import { formatPercent } from "@/lib/performance";
-import { sliceFromPeriodId } from "@/lib/series";
-import type { PortfolioData } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const YOU_COLOR = "#0f172a";
 const OPPONENT_COLOR = "#06b6d4";
 
 export interface VsOpponentSectionProps {
-  baseData: PortfolioData;
-  benchmarks: BenchmarkFile;
+  comparison: OpponentComparison | null;
+  opponentIds: string[];
+  selectedId: string;
+  onOpponentChange: (id: string) => void;
   currency: string;
-  chartStartWindows: ChartStartWindow[];
-  defaultChartStart: string;
-  benchmarkConfigs: BenchmarkConfig[];
 }
 
 function formatMoney(value: number | null, currency: string): string {
@@ -143,44 +131,13 @@ function buildPathOption(
 }
 
 export function VsOpponentSection({
-  baseData,
-  benchmarks,
+  comparison,
+  opponentIds,
+  selectedId,
+  onOpponentChange,
   currency,
-  chartStartWindows,
-  defaultChartStart,
-  benchmarkConfigs,
 }: VsOpponentSectionProps) {
-  const initialStart =
-    chartStartWindows.find((w) => w.id === defaultChartStart)?.id ??
-    chartStartWindows[0]?.id ??
-    baseData.periods[0]?.id ??
-    "";
-  const [start, setStart] = useState(initialStart);
-  const data = useMemo(
-    () => (start ? sliceFromPeriodId(baseData, start) : baseData),
-    [baseData, start],
-  );
-
-  const preferredIds = benchmarkConfigs.map((c) => c.id);
-  const ids = useMemo(
-    () => listBenchmarkIds(benchmarks.prices, preferredIds),
-    [benchmarks.prices, preferredIds],
-  );
-  const [opponentId, setOpponentId] = useState(() => pickDefaultOpponentId(ids));
-  const selectedId = ids.includes(opponentId)
-    ? opponentId
-    : pickDefaultOpponentId(ids);
-
-  const comparison: OpponentComparison | null = useMemo(() => {
-    if (ids.length === 0 || data.periods.length < 2) return null;
-    return computeOpponentComparison(
-      data,
-      benchmarks,
-      selectedId,
-      benchmarkConfigs,
-    );
-  }, [data, benchmarks, selectedId, benchmarkConfigs, ids.length]);
-
+  const ids = opponentIds;
   const label = comparison?.headline.opponentLabel ?? selectedId;
   const cashOption = useMemo(
     () =>
@@ -201,13 +158,6 @@ export function VsOpponentSection({
     <ChartSection
       title={`You vs ${label}`}
       description="Two scores. Dollars first: would the same paychecks in the index have made you richer? Then: did the stocks you held grow faster, ignoring when the paycheck landed."
-      action={
-        <StartWindowToggle
-          windows={chartStartWindows}
-          value={start}
-          onChange={setStart}
-        />
-      }
     >
       {ids.length === 0 || !comparison ? (
         <p className="text-muted-foreground text-sm">
@@ -236,7 +186,7 @@ export function VsOpponentSection({
                     "h-7 px-2.5 text-xs",
                     id !== selectedId && "text-muted-foreground",
                   )}
-                  onClick={() => setOpponentId(id)}
+                  onClick={() => onOpponentChange(id)}
                   aria-pressed={id === selectedId}
                 >
                   {id}

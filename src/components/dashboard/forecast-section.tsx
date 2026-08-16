@@ -6,13 +6,6 @@ import { ChartSection } from "@/components/dashboard/chart-section";
 import { useForecastPlanPrefs } from "@/components/dashboard/use-forecast-plan";
 import { Button } from "@/components/ui/button";
 import { NumericField } from "@/components/ui/numeric-field";
-import type { BenchmarkConfig, ChartStartWindow } from "@/lib/config";
-import {
-  computeOpponentComparison,
-  listBenchmarkIds,
-  pickDefaultOpponentId,
-  type BenchmarkFile,
-} from "@/lib/benchmarks";
 import {
   CONTRIBUTION_FREQUENCY_OPTIONS,
   HORIZON_YEAR_OPTIONS,
@@ -22,18 +15,18 @@ import {
   ratePercentFromDecimal,
   type ContributionFrequency,
 } from "@/lib/forecast";
-import { computeReturnStats } from "@/lib/performance";
-import { latestPeriod, sliceFromPeriodId } from "@/lib/series";
+import { latestPeriod } from "@/lib/series";
 import type { PortfolioData } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export interface ForecastSectionProps {
+  /** Full estimated portfolio — latest principal is not windowed. */
   data: PortfolioData;
+  windowLabel: string;
+  holdingsCagr: number | null;
+  opponentHoldingsAnn: number | null;
+  opponentLabel: string;
   currency: string;
-  benchmarks: BenchmarkFile;
-  benchmarkConfigs: BenchmarkConfig[];
-  chartStartWindows: ChartStartWindow[];
-  defaultChartStart: string;
 }
 
 type RatePreset = "holdings" | "opponent" | "planning" | "custom";
@@ -96,54 +89,28 @@ function useSyncedDefault(defaultValue: string): [string, (v: string) => void] {
  */
 export function ForecastSection({
   data,
+  windowLabel,
+  holdingsCagr,
+  opponentHoldingsAnn,
+  opponentLabel,
   currency,
-  benchmarks,
-  benchmarkConfigs,
-  chartStartWindows,
-  defaultChartStart,
 }: ForecastSectionProps) {
-  const windowStart =
-    chartStartWindows.find((w) => w.id === defaultChartStart)?.id ??
-    chartStartWindows[0]?.id ??
-    data.periods[0]?.id ??
-    "";
-  const windowLabel =
-    chartStartWindows.find((w) => w.id === windowStart)?.label ?? windowStart;
-
   const defaults = useMemo(() => {
     const latest = latestPeriod(data);
     const principal = latest?.totalNetWorth ?? 0;
-    const windowed = windowStart
-      ? sliceFromPeriodId(data, windowStart)
-      : data;
-    const youStats = computeReturnStats(windowed);
-    const preferredIds = benchmarkConfigs.map((c) => c.id);
-    const ids = listBenchmarkIds(benchmarks.prices, preferredIds);
-    const opponentId = pickDefaultOpponentId(ids);
-    const comparison =
-      ids.length > 0 && windowed.periods.length >= 2
-        ? computeOpponentComparison(
-            windowed,
-            benchmarks,
-            opponentId,
-            benchmarkConfigs,
-          )
-        : null;
-    const holdingsPct = ratePercentFromDecimal(youStats.cagr);
-    const opponentPct = ratePercentFromDecimal(
-      comparison?.headline.opponentHoldingsAnn ?? null,
-    );
+    const holdingsPct = ratePercentFromDecimal(holdingsCagr);
+    const opponentPct = ratePercentFromDecimal(opponentHoldingsAnn);
     const startFromData = latest?.id ?? todayMonth();
     return {
       principal,
       principalText: String(Math.round(principal)),
       holdingsPct,
       opponentPct,
-      opponentLabel: comparison?.headline.opponentLabel ?? opponentId,
+      opponentLabel,
       startDate: startFromData.length === 7 ? startFromData : todayMonth(),
       windowLabel,
     };
-  }, [data, windowStart, windowLabel, benchmarks, benchmarkConfigs]);
+  }, [data, windowLabel, holdingsCagr, opponentHoldingsAnn, opponentLabel]);
 
   const [principal, setPrincipal] = useSyncedDefault(defaults.principalText);
   const [plan, updatePlan] = useForecastPlanPrefs();
