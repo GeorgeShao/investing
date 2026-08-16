@@ -111,11 +111,6 @@ export interface Period {
   /** Precomputed sum of balances; should equal sum of marketValue. */
   totalNetWorth: number;
   cashFlows: PeriodCashFlows;
-  /**
-   * External cash flows per account (same units as `cashFlows`).
-   * Household `cashFlows` should equal the sum of these rows.
-   */
-  accountCashFlows?: Record<string, PeriodCashFlows>;
   /** Extensibility: month-end holdings when extracted from statements. */
   holdings?: HoldingSnapshot[];
   /** Extensibility: activity ledger lines when extracted. */

@@ -669,14 +669,6 @@ export function ratePercentFromDecimal(decimal: number | null): number | null {
 }
 
 /**
- * Typical monthly contribution from a lookback of monthly deposit totals.
- *
- * Includes $0 months so a sporadic depositor is not treated as depositing
- * every month. Drops the single largest month when it is more than half the
- * lookback total (one-off transfers should not set the going-forward paycheck).
- * Rounds to `step` dollars (default $50).
- */
-/**
  * Today's dollars: strip inflation from a nominal terminal.
  * `inflationRate` is a decimal annual rate (0.02 = 2%).
  */
@@ -690,6 +682,38 @@ export function realDollars(
     return nominal;
   }
   return nominal / Math.pow(1 + inflationRate, years);
+}
+
+/**
+ * Apply {@link realDollars} to every chart point and the matching terminals
+ * so the forecast graph and featured numbers stay on the same unit.
+ */
+export function deflateForecastSeries(
+  series: ForecastSeries,
+  inflationRate: number,
+): ForecastSeries {
+  if (!(inflationRate > 0) || series.points.length === 0) return series;
+  const points = series.points.map((p) => ({
+    ...p,
+    min: realDollars(p.min, p.year, inflationRate),
+    expected: realDollars(p.expected, p.year, inflationRate),
+    max: realDollars(p.max, p.year, inflationRate),
+    historical:
+      p.historical == null
+        ? null
+        : realDollars(p.historical, p.year, inflationRate),
+  }));
+  const last = points[points.length - 1];
+  return {
+    ...series,
+    points,
+    terminal: {
+      min: last.min,
+      expected: last.expected,
+      max: last.max,
+      historical: last.historical,
+    },
+  };
 }
 
 /**
@@ -791,6 +815,14 @@ export function resolveForecastContribution(
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
+/**
+ * Typical monthly contribution from a lookback of monthly deposit totals.
+ *
+ * Includes $0 months so a sporadic depositor is not treated as depositing
+ * every month. Drops the single largest month when it is more than half the
+ * lookback total (one-off transfers should not set the going-forward paycheck).
+ * Rounds to `step` dollars (default $50).
+ */
 export function typicalMonthlyDeposits(
   monthlyDeposits: number[],
   options?: { step?: number; outlierShare?: number },

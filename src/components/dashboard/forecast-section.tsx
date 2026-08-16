@@ -11,10 +11,10 @@ import {
   HORIZON_YEAR_OPTIONS,
   PLANNING_ANNUAL_RETURN_PCT,
   buildForecastProjection,
+  deflateForecastSeries,
   monthlyAmountToHitTarget,
   percentToDecimal,
   ratePercentFromDecimal,
-  realDollars,
   resolveForecastContribution,
   type ContributionFrequency,
   yearsToTarget,
@@ -120,7 +120,14 @@ export function ForecastSection({
 
   const [principal, setPrincipal] = useSyncedDefault(defaults.principalText);
   const [plan, updatePlan] = useForecastPlanPrefs();
-  const { contributionAmount, frequency, useEndDate, endDate } = plan;
+  const {
+    contributionAmount,
+    frequency,
+    useEndDate,
+    endDate,
+    inflationPct,
+    goalTarget,
+  } = plan;
   const typicalText = String(typicalMonthlyDeposit);
   const amountDisplay =
     contributionAmount === "" ? typicalText : contributionAmount;
@@ -129,8 +136,6 @@ export function ForecastSection({
     typicalMonthlyDeposit,
   );
   const [todayDollars, setTodayDollars] = useState(true);
-  const [inflationPct, setInflationPct] = useState("2");
-  const [goalTarget, setGoalTarget] = useState("");
   const [startDate, setStartDate] = useSyncedDefault(defaults.startDate);
   const [horizonYears, setHorizonYears] = useState("20");
   const [minPct, setMinPct] = useState("3");
@@ -237,10 +242,10 @@ export function ForecastSection({
 
   const horizonNum = Number(horizonYears);
   const inflationRate = percentToDecimal(Number(inflationPct));
-  const showAsToday = (nominal: number) =>
-    todayDollars
-      ? realDollars(nominal, series.years, inflationRate)
-      : nominal;
+  const displaySeries =
+    todayDollars && inflationRate > 0
+      ? deflateForecastSeries(series, inflationRate)
+      : series;
   const goal = Number(goalTarget);
   const expectedRate = percentToDecimal(
     Number.isFinite(Number(expectedPct)) ? Number(expectedPct) : 0,
@@ -533,7 +538,7 @@ export function ForecastSection({
           className={cn(
             "grid gap-3 sm:grid-cols-2 lg:grid-cols-4",
             includeHistorical &&
-              series.terminal.historical != null &&
+              displaySeries.terminal.historical != null &&
               "xl:grid-cols-5",
           )}
         >
@@ -547,20 +552,20 @@ export function ForecastSection({
           />
           <SummaryCard
             label={todayDollars ? "Expected (today’s $)" : "Expected terminal"}
-            value={formatMoney(showAsToday(series.terminal.expected), currency)}
+            value={formatMoney(displaySeries.terminal.expected, currency)}
           />
-          {includeHistorical && series.terminal.historical != null ? (
+          {includeHistorical && displaySeries.terminal.historical != null ? (
             <SummaryCard
               label={`${pathLabel} ${todayDollars ? "(today’s $)" : "terminal"}`}
               value={formatMoney(
-                showAsToday(series.terminal.historical),
+                displaySeries.terminal.historical,
                 currency,
               )}
             />
           ) : null}
           <SummaryCard
             label={todayDollars ? "Range (today’s $)" : "Range (min – max)"}
-            value={`${formatMoney(showAsToday(series.terminal.min), currency)} – ${formatMoney(showAsToday(series.terminal.max), currency)}`}
+            value={`${formatMoney(displaySeries.terminal.min, currency)} – ${formatMoney(displaySeries.terminal.max, currency)}`}
           />
         </div>
 
@@ -584,7 +589,7 @@ export function ForecastSection({
               step={0.1}
               className={fieldClassName()}
               value={inflationPct}
-              onValueChange={setInflationPct}
+              onValueChange={(v) => updatePlan({ inflationPct: v })}
               disabled={!todayDollars}
               aria-label="Inflation percent"
             />
@@ -597,12 +602,12 @@ export function ForecastSection({
               step={1000}
               className={fieldClassName()}
               value={goalTarget}
-              onValueChange={setGoalTarget}
+              onValueChange={(v) => updatePlan({ goalTarget: v })}
               aria-label="Goal target amount"
             />
             <p className="text-muted-foreground text-[11px]">
               When do I hit this, and what monthly amount hits it by the
-              horizon.
+              horizon. Saved in this browser.
             </p>
           </div>
           <SummaryCard
@@ -626,7 +631,7 @@ export function ForecastSection({
         </div>
 
         <ForecastChart
-          series={series}
+          series={displaySeries}
           currency={currency}
           historicalLabel={pathLabel}
         />
@@ -641,7 +646,7 @@ export function ForecastSection({
               : ratePreset === "planning"
                 ? "the same 7% planning rate as expected"
                 : "the rate you typed"}
-          . Terminals{" "}
+          . The chart and terminals{" "}
           {todayDollars
             ? `are in today’s dollars at ${inflationPct || "0"}% inflation`
             : "are nominal (not adjusted for inflation)"}

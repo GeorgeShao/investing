@@ -53,8 +53,7 @@
     },
     {
       "name": "Fidelity 401(k)",
-      "memberIds": ["fid-example-bl", "fid-emp-example-plan"],
-      "notTryingToBeatIndex": true
+      "memberIds": ["fid-example-bl", "fid-emp-example-plan"]
     }
   ],
   "currency": "CAD",

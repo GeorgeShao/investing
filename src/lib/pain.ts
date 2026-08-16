@@ -1,6 +1,6 @@
 /**
  * Drawdown, time underwater, and worst 12-month return on a path.
- * Used for you vs opponent on the same windowed (and sleeved) series.
+ * Used for you vs opponent on the same windowed series.
  */
 
 import type { OpponentComparison } from "@/lib/benchmarks";

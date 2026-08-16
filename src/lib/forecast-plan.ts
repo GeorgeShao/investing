@@ -1,6 +1,7 @@
 /**
- * Browser prefs for the forecast contribution / end-date controls.
- * Principal and rates stay computed; data.json is untouched.
+ * Browser prefs for the forecast contribution, end-date, inflation, and
+ * goal-amount controls. Principal and rates stay computed; data.json is
+ * untouched.
  */
 
 import {
@@ -24,6 +25,8 @@ export interface ForecastPlanPrefs {
   frequency: ContributionFrequency;
   useEndDate: boolean;
   endDate: string;
+  inflationPct: string;
+  goalTarget: string;
 }
 
 export const DEFAULT_FORECAST_PLAN: ForecastPlanPrefs = {
@@ -32,24 +35,20 @@ export const DEFAULT_FORECAST_PLAN: ForecastPlanPrefs = {
   frequency: "monthly",
   useEndDate: false,
   endDate: "",
+  inflationPct: "2",
+  goalTarget: "",
 };
 
 function isFrequency(v: unknown): v is ContributionFrequency {
   return typeof v === "string" && FREQUENCIES.has(v as ContributionFrequency);
 }
 
-function sanitizeAmount(raw: unknown): string {
-  if (raw === undefined || raw === null) {
-    return DEFAULT_FORECAST_PLAN.contributionAmount;
-  }
-  if (typeof raw !== "string" && typeof raw !== "number") {
-    return DEFAULT_FORECAST_PLAN.contributionAmount;
-  }
+function sanitizeAmount(raw: unknown, fallback: string): string {
+  if (raw === undefined || raw === null) return fallback;
+  if (typeof raw !== "string" && typeof raw !== "number") return fallback;
   const s = String(raw).trim();
   if (s === "" || s === "." || s === "0.") return s;
-  if (!Number.isFinite(Number(s)) || Number(s) < 0) {
-    return DEFAULT_FORECAST_PLAN.contributionAmount;
-  }
+  if (!Number.isFinite(Number(s)) || Number(s) < 0) return fallback;
   return s;
 }
 
@@ -76,12 +75,23 @@ export function sanitizeForecastPlan(raw: unknown): ForecastPlanPrefs {
   const obj =
     raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   return {
-    contributionAmount: sanitizeAmount(obj.contributionAmount),
+    contributionAmount: sanitizeAmount(
+      obj.contributionAmount,
+      DEFAULT_FORECAST_PLAN.contributionAmount,
+    ),
     frequency: isFrequency(obj.frequency)
       ? obj.frequency
       : DEFAULT_FORECAST_PLAN.frequency,
     useEndDate: obj.useEndDate === true,
     endDate: sanitizeEndDate(obj.endDate),
+    inflationPct: sanitizeAmount(
+      obj.inflationPct,
+      DEFAULT_FORECAST_PLAN.inflationPct,
+    ),
+    goalTarget: sanitizeAmount(
+      obj.goalTarget,
+      DEFAULT_FORECAST_PLAN.goalTarget,
+    ),
   };
 }
 

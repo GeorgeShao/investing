@@ -24,7 +24,6 @@ import {
   pickDefaultOpponentId,
   type BenchmarkFile,
 } from "@/lib/benchmarks";
-import { HOUSEHOLD_SLEEVE_ID, listSleeves } from "@/lib/sleeves";
 import type { PortfolioData } from "@/lib/types";
 
 export interface WindowedSectionsProps {
@@ -56,7 +55,6 @@ export function WindowedSections({
     chartStartWindows,
   );
   const [start, setStart] = useState(initialStart);
-  const [sleeveId, setSleeveId] = useState(HOUSEHOLD_SLEEVE_ID);
 
   const preferredIds = benchmarkConfigs.map((c) => c.id);
   const opponentIds = useMemo(
@@ -71,26 +69,12 @@ export function WindowedSections({
     () =>
       buildWindowedAnalysis(data, {
         startPeriodId: start,
-        sleeveId,
         accountGroups,
         benchmarks,
         opponentId,
         benchmarkConfigs,
       }),
-    [
-      data,
-      start,
-      sleeveId,
-      accountGroups,
-      benchmarks,
-      opponentId,
-      benchmarkConfigs,
-    ],
-  );
-
-  const sleeves = useMemo(
-    () => listSleeves(data, accountGroups),
-    [data, accountGroups],
+    [data, start, accountGroups, benchmarks, opponentId, benchmarkConfigs],
   );
 
   const windowLabel =
@@ -110,9 +94,6 @@ export function WindowedSections({
         windows={chartStartWindows}
         start={analysis.startPeriodId}
         onStartChange={setStart}
-        sleeves={sleeves}
-        sleeveId={analysis.sleeve.id}
-        onSleeveChange={setSleeveId}
       />
       <VsOpponentSection
         comparison={analysis.comparison}
@@ -120,7 +101,6 @@ export function WindowedSections({
         selectedId={analysis.opponentId}
         onOpponentChange={setOpponentId}
         currency={currency}
-        sleeveLabel={analysis.sleeve.label}
         pain={analysis.pain}
         attribution={analysis.attribution}
         fees={analysis.fees}

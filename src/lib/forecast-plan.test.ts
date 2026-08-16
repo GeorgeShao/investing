@@ -11,7 +11,7 @@ describe("sanitizeForecastPlan", () => {
     expect(sanitizeForecastPlan({})).toEqual(DEFAULT_FORECAST_PLAN);
   });
 
-  it("keeps valid contribution, frequency, end date, and checkbox", () => {
+  it("keeps valid contribution, frequency, end date, inflation, and goal", () => {
     expect(
       sanitizeForecastPlan({
         version: 1,
@@ -19,12 +19,16 @@ describe("sanitizeForecastPlan", () => {
         frequency: "biweekly",
         useEndDate: true,
         endDate: "2033-11",
+        inflationPct: "2.5",
+        goalTarget: "1000000",
       }),
     ).toEqual({
       contributionAmount: "500",
       frequency: "biweekly",
       useEndDate: true,
       endDate: "2033-11",
+      inflationPct: "2.5",
+      goalTarget: "1000000",
     });
   });
 
@@ -57,5 +61,23 @@ describe("sanitizeForecastPlan", () => {
   it("treats a missing amount as follow-typical, not zero", () => {
     expect(sanitizeForecastPlan({}).contributionAmount).toBe("");
     expect(DEFAULT_FORECAST_PLAN.contributionAmount).toBe("");
+  });
+
+  it("defaults missing inflation to 2% and missing goal to empty", () => {
+    const plan = sanitizeForecastPlan({ contributionAmount: "100" });
+    expect(plan.inflationPct).toBe("2");
+    expect(plan.goalTarget).toBe("");
+    expect(DEFAULT_FORECAST_PLAN.inflationPct).toBe("2");
+    expect(DEFAULT_FORECAST_PLAN.goalTarget).toBe("");
+  });
+
+  it("rejects a negative inflation or goal", () => {
+    expect(sanitizeForecastPlan({ inflationPct: "-1" }).inflationPct).toBe("2");
+    expect(sanitizeForecastPlan({ goalTarget: "-50" }).goalTarget).toBe("");
+  });
+
+  it("keeps in-progress inflation and goal drafts", () => {
+    expect(sanitizeForecastPlan({ inflationPct: "2." }).inflationPct).toBe("2.");
+    expect(sanitizeForecastPlan({ goalTarget: "0." }).goalTarget).toBe("0.");
   });
 });

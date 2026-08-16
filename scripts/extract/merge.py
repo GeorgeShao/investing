@@ -332,7 +332,6 @@ def build_portfolio(
         period_holdings: list[dict[str, Any]] = []
         period_txs: list[dict[str, Any]] = []
         fx_rates: dict[str, float] = {}
-        account_cash: dict[str, dict[str, float]] = {}
 
         for aid, ex in sorted(acct_map.items()):
             balances.append(
@@ -353,15 +352,6 @@ def build_portfolio(
             fees += ex.fees
             transfers_in += ex.transfers_in
             transfers_out += ex.transfers_out
-            account_cash[aid] = {
-                "deposits": round(ex.deposits, 2),
-                "withdrawals": round(ex.withdrawals, 2),
-                "dividends": round(ex.dividends, 2),
-                "interest": round(ex.interest, 2),
-                "fees": round(ex.fees, 2),
-                "transfersIn": round(ex.transfers_in, 2),
-                "transfersOut": round(ex.transfers_out, 2),
-            }
             if ex.fx_rate:
                 fx_rates[aid] = ex.fx_rate
             for h in ex.holdings:
@@ -424,7 +414,6 @@ def build_portfolio(
                     "transfersIn": round(transfers_in, 2),
                     "transfersOut": round(transfers_out, 2),
                 },
-                "accountCashFlows": account_cash,
                 "holdings": period_holdings,
                 "transactions": period_txs,
                 "fxRates": fx_rates,

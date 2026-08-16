@@ -234,56 +234,6 @@ class TestRegistry(unittest.TestCase):
         self.assertEqual(portfolio["periods"][0]["totalNetWorth"], 1000.0)
 
 
-class TestAccountCashFlows(unittest.TestCase):
-    def test_per_account_flows_sum_to_household(self) -> None:
-        a = StatementExtract(
-            source_path="a.pdf",
-            institution="Questrade",
-            account_number="A1",
-            account_type="tfsa",
-            statement_currency="CAD",
-            period_id="2024-06",
-            label="Jun 2024",
-            start_date="2024-06-01",
-            end_date="2024-06-30",
-            market_value=5000,
-            market_value_cad=5000,
-            deposits=200.0,
-            fees=5.0,
-        )
-        b = StatementExtract(
-            source_path="b.pdf",
-            institution="Wealthsimple",
-            account_number="B1",
-            account_type="non_registered",
-            statement_currency="CAD",
-            period_id="2024-06",
-            label="Jun 2024",
-            start_date="2024-06-01",
-            end_date="2024-06-30",
-            market_value=2000,
-            market_value_cad=2000,
-            deposits=50.0,
-            withdrawals=10.0,
-        )
-        portfolio, _ = build_portfolio([a, b], [], currency="CAD")
-        period = portfolio["periods"][0]
-        per = period["accountCashFlows"]
-        self.assertEqual(len(per), 2)
-        self.assertAlmostEqual(
-            sum(row["deposits"] for row in per.values()),
-            period["cashFlows"]["deposits"],
-        )
-        self.assertAlmostEqual(
-            sum(row["withdrawals"] for row in per.values()),
-            period["cashFlows"]["withdrawals"],
-        )
-        self.assertAlmostEqual(
-            sum(row["fees"] for row in per.values()),
-            period["cashFlows"]["fees"],
-        )
-
-
 class TestTransferReclass(unittest.TestCase):
     def test_matched_cross_account_flow_clears_external(self) -> None:
         a = StatementExtract(

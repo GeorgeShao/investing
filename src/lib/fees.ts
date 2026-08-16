@@ -50,7 +50,7 @@ export function resolveOpponentMer(opponentId: string): {
   return OPPONENT_MER[opponentId] ?? DEFAULT_OPPONENT_MER;
 }
 
-/** Sum of extracted `cashFlows.fees` on the (already windowed/sleeved) document. */
+/** Sum of extracted `cashFlows.fees` on the (already windowed) document. */
 export function sumExtractedFees(data: PortfolioData): number {
   let sum = 0;
   for (const period of data.periods) {

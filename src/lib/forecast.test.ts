@@ -5,6 +5,7 @@ import {
   buildForecastProjection,
   buildForecastSeries,
   contributionPerEvent,
+  deflateForecastSeries,
   labelForYearOffset,
   listForecastTickMonths,
   monthlyAmountToHitTarget,
@@ -446,6 +447,36 @@ describe("realDollars", () => {
     expect(today).toBeCloseTo(nominal / Math.pow(1.02, 20), 8);
     expect(today).toBeLessThan(nominal);
     expect(realDollars(nominal, 0, i)).toBe(nominal);
+  });
+});
+
+describe("deflateForecastSeries", () => {
+  it("applies realDollars to every point so the chart matches the terminals", () => {
+    const series = buildForecastProjection({
+      principal: 10000,
+      contributionAmount: 0,
+      contributionFrequency: "none",
+      startDate: "2026-01",
+      endDate: "2046-01",
+      rates: { min: 0.03, expected: 0.07, max: 0.12, historical: 0.1 },
+    });
+    const i = 0.02;
+    const real = deflateForecastSeries(series, i);
+    expect(real.points.length).toBe(series.points.length);
+    expect(real.points[0].expected).toBeCloseTo(series.points[0].expected, 8);
+    for (const [idx, p] of real.points.entries()) {
+      const nom = series.points[idx];
+      expect(p.expected).toBeCloseTo(realDollars(nom.expected, nom.year, i), 8);
+      expect(p.min).toBeCloseTo(realDollars(nom.min, nom.year, i), 8);
+      expect(p.max).toBeCloseTo(realDollars(nom.max, nom.year, i), 8);
+      expect(p.historical).toBeCloseTo(
+        realDollars(nom.historical as number, nom.year, i),
+        8,
+      );
+    }
+    const last = real.points[real.points.length - 1];
+    expect(real.terminal.expected).toBe(last.expected);
+    expect(last.expected).toBeLessThan(series.terminal.expected);
   });
 });
 

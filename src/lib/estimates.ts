@@ -212,14 +212,6 @@ function clonePeriod(period: Period): Period {
     ...period,
     balances: period.balances.map((b) => ({ ...b })),
     cashFlows: { ...period.cashFlows },
-    accountCashFlows: period.accountCashFlows
-      ? Object.fromEntries(
-          Object.entries(period.accountCashFlows).map(([id, f]) => [
-            id,
-            { ...f },
-          ]),
-        )
-      : undefined,
     holdings: period.holdings?.map((h) => ({ ...h })),
     transactions: period.transactions?.map((t) => ({ ...t })),
   };
@@ -258,16 +250,6 @@ export function applyEstimates(
       period.cashFlows.withdrawals = round2(
         period.cashFlows.withdrawals + est.withdrawals,
       );
-      period.accountCashFlows = {
-        ...(period.accountCashFlows ?? {}),
-        [accountId]: {
-          deposits: round2(est.deposits),
-          withdrawals: round2(est.withdrawals),
-          dividends: 0,
-          interest: 0,
-          fees: 0,
-        },
-      };
       period.totalNetWorth = round2(
         period.balances.reduce((s, b) => s + b.marketValue, 0),
       );

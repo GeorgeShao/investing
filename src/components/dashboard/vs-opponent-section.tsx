@@ -21,7 +21,6 @@ export interface VsOpponentSectionProps {
   selectedId: string;
   onOpponentChange: (id: string) => void;
   currency: string;
-  sleeveLabel?: string;
   pain?: OpponentPain | null;
   attribution?: GapAttribution | null;
   fees?: FeeDrag | null;
@@ -143,15 +142,12 @@ export function VsOpponentSection({
   selectedId,
   onOpponentChange,
   currency,
-  sleeveLabel,
   pain,
   attribution,
   fees,
 }: VsOpponentSectionProps) {
   const ids = opponentIds;
   const label = comparison?.headline.opponentLabel ?? selectedId;
-  const who =
-    sleeveLabel && sleeveLabel !== "Household" ? `You (${sleeveLabel})` : "You";
   const cashOption = useMemo(
     () =>
       comparison
@@ -169,7 +165,7 @@ export function VsOpponentSection({
 
   return (
     <ChartSection
-      title={`${who} vs ${label}`}
+      title={`You vs ${label}`}
       description="Two scores. Dollars first: would the same paychecks in the index have made you richer? Then: did the stocks you held grow faster, ignoring when the paycheck landed."
     >
       {ids.length === 0 || !comparison ? (
@@ -516,7 +512,7 @@ function PainTable({
     <div className="space-y-2">
       <p className="text-sm font-medium">Pain next to return</p>
       <p className="text-muted-foreground text-xs leading-relaxed">
-        Same window and sleeve as the two scores. Drawdown and time underwater
+        Same window as the two scores. Drawdown and time underwater
         are peak-to-trough on $1 left invested. Worst 12 months is the worst
         exact calendar-year stretch on that path.
       </p>
