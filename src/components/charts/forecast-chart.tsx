@@ -143,7 +143,7 @@ export function ForecastChart({
   series,
   currency = "CAD",
   height = 400,
-  historicalLabel = "Your holdings",
+  historicalLabel = "Your past performance",
 }: ForecastChartProps) {
   const option = useMemo(
     () => buildOption(series, currency, historicalLabel),

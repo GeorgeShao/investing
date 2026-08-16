@@ -52,7 +52,7 @@ export interface WindowedAnalysis {
   cashFlow: CashFlowSeries;
   pnl: MonthlyPnLSeries;
   weights: HoldingWeightSeries;
-  /** Holdings CAGR on this window — the forecast “your holdings” chip. */
+  /** Holdings CAGR on this window — the forecast “your past performance” chip. */
   holdingsCagr: number | null;
   /** Opponent holdings CAGR on this window — the forecast opponent chip. */
   opponentHoldingsAnn: number | null;

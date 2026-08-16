@@ -165,7 +165,7 @@ export function ForecastSection({
   }, [ratePreset, defaults.holdingsPct, defaults.opponentPct, customHistoricalPct]);
 
   const pathLabel = useMemo(() => {
-    if (ratePreset === "holdings") return "Your holdings";
+    if (ratePreset === "holdings") return "Your past performance";
     if (ratePreset === "opponent") return defaults.opponentLabel;
     if (ratePreset === "planning") return "7% planning";
     return "Custom rate";
@@ -173,7 +173,7 @@ export function ForecastSection({
 
   const pathHint = useMemo(() => {
     if (ratePreset === "holdings") {
-      return `If your holdings keep returning like they have since ${defaults.windowLabel}.`;
+      return `If your past performance continues from ${defaults.windowLabel}.`;
     }
     if (ratePreset === "opponent") {
       return `If ${defaults.opponentLabel} keeps returning like it has since ${defaults.windowLabel}. Recent realized is not a 20-year expected.`;
@@ -493,7 +493,7 @@ export function ForecastSection({
                     onClick={() => applyPreset("holdings")}
                     aria-pressed={ratePreset === "holdings"}
                   >
-                    Your holdings ({formatRateChip(defaults.holdingsPct)})
+                    Your past performance ({formatRateChip(defaults.holdingsPct)})
                   </Button>
                 ) : null}
                 {defaults.opponentPct != null ? (
@@ -640,7 +640,7 @@ export function ForecastSection({
           Contributions land at the end of each period; returns compound
           monthly. Min / expected / max is a planning band. {pathLabel} is{" "}
           {ratePreset === "holdings"
-            ? `your holdings rate since ${defaults.windowLabel}`
+            ? `your realized rate since ${defaults.windowLabel}`
             : ratePreset === "opponent"
               ? `${defaults.opponentLabel}'s holdings rate since ${defaults.windowLabel}`
               : ratePreset === "planning"
