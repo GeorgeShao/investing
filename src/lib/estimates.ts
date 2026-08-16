@@ -283,11 +283,17 @@ export function loadStoredEstimates(): EstimateMap {
   try {
     const raw = window.localStorage.getItem(ESTIMATE_STORAGE_KEY);
     if (!raw) return {};
-    const parsed = JSON.parse(raw) as { entries?: EstimateMap } | EstimateMap;
-    if (parsed && typeof parsed === "object" && "entries" in parsed) {
-      return parsed.entries ?? {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return {};
+    if (
+      "entries" in parsed &&
+      parsed.entries &&
+      typeof parsed.entries === "object" &&
+      !Array.isArray(parsed.entries)
+    ) {
+      return parsed.entries as EstimateMap;
     }
-    return (parsed as EstimateMap) ?? {};
+    return parsed as EstimateMap;
   } catch {
     return {};
   }
