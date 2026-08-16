@@ -3,6 +3,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { ForecastChart } from "@/components/charts/forecast-chart";
 import { ChartSection } from "@/components/dashboard/chart-section";
+import { useForecastPlanPrefs } from "@/components/dashboard/use-forecast-plan";
 import { Button } from "@/components/ui/button";
 import { NumericField } from "@/components/ui/numeric-field";
 import type { BenchmarkConfig, ChartStartWindow } from "@/lib/config";
@@ -145,13 +146,10 @@ export function ForecastSection({
   }, [data, windowStart, windowLabel, benchmarks, benchmarkConfigs]);
 
   const [principal, setPrincipal] = useSyncedDefault(defaults.principalText);
-  const [contributionAmount, setContributionAmount] = useState("0");
-  const [frequency, setFrequency] =
-    useState<ContributionFrequency>("monthly");
+  const [plan, updatePlan] = useForecastPlanPrefs();
+  const { contributionAmount, frequency, useEndDate, endDate } = plan;
   const [startDate, setStartDate] = useSyncedDefault(defaults.startDate);
-  const [endDate, setEndDate] = useState("");
   const [horizonYears, setHorizonYears] = useState("20");
-  const [useEndDate, setUseEndDate] = useState(false);
   const [minPct, setMinPct] = useState("3");
   const [expectedPct, setExpectedPct] = useState(
     String(PLANNING_ANNUAL_RETURN_PCT),
@@ -288,13 +286,13 @@ export function ForecastSection({
               step={50}
               className={fieldClassName()}
               value={contributionAmount}
-              onValueChange={setContributionAmount}
+              onValueChange={(v) => updatePlan({ contributionAmount: v })}
               aria-label="Contribution amount per event"
               disabled={frequency === "none"}
             />
             <p className="text-muted-foreground text-[11px]">
               Default 0 — project the current balance only. Per contribution
-              event, not annual total.
+              event, not annual total. Saved in this browser.
             </p>
           </div>
 
@@ -305,7 +303,9 @@ export function ForecastSection({
               className={fieldClassName()}
               value={frequency}
               onChange={(e) =>
-                setFrequency(e.target.value as ContributionFrequency)
+                updatePlan({
+                  frequency: e.target.value as ContributionFrequency,
+                })
               }
               aria-label="Contribution frequency"
             >
@@ -336,7 +336,7 @@ export function ForecastSection({
                 <input
                   type="checkbox"
                   checked={useEndDate}
-                  onChange={(e) => setUseEndDate(e.target.checked)}
+                  onChange={(e) => updatePlan({ useEndDate: e.target.checked })}
                   className="size-3.5 rounded border"
                 />
                 Use end date
@@ -344,10 +344,14 @@ export function ForecastSection({
             </div>
             <input
               id="fc-end"
-              type="month"
+              type="text"
+              inputMode="numeric"
+              placeholder="YYYY-MM"
+              autoComplete="off"
+              spellCheck={false}
               className={fieldClassName()}
-              value={endDate.slice(0, 7)}
-              onChange={(e) => setEndDate(e.target.value)}
+              value={endDate}
+              onChange={(e) => updatePlan({ endDate: e.target.value })}
               disabled={!useEndDate}
               aria-label="Forecast end date"
             />
