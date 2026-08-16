@@ -122,6 +122,7 @@ export function WindowedSections({
         currency={currency}
         sleeveLabel={analysis.sleeve.label}
         pain={analysis.pain}
+        attribution={analysis.attribution}
       />
       <ChartSection
         title="Portfolio value over time"

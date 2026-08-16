@@ -5,6 +5,7 @@ import type { EChartsOption } from "echarts";
 import { EChartsWrapper } from "@/components/charts/echarts-wrapper";
 import { ChartSection } from "@/components/dashboard/chart-section";
 import { Button } from "@/components/ui/button";
+import type { GapAttribution } from "@/lib/attribution";
 import type { BenchmarkSeries, OpponentComparison } from "@/lib/benchmarks";
 import type { OpponentPain, PathPain } from "@/lib/pain";
 import { formatPercent } from "@/lib/performance";
@@ -21,6 +22,7 @@ export interface VsOpponentSectionProps {
   currency: string;
   sleeveLabel?: string;
   pain?: OpponentPain | null;
+  attribution?: GapAttribution | null;
 }
 
 function formatMoney(value: number | null, currency: string): string {
@@ -141,6 +143,7 @@ export function VsOpponentSection({
   currency,
   sleeveLabel,
   pain,
+  attribution,
 }: VsOpponentSectionProps) {
   const ids = opponentIds;
   const label = comparison?.headline.opponentLabel ?? selectedId;
@@ -292,6 +295,14 @@ export function VsOpponentSection({
             />
           </div>
 
+          {attribution ? (
+            <AttributionTable
+              attribution={attribution}
+              opponentLabel={label}
+              currency={currency}
+            />
+          ) : null}
+
           {pain ? <PainTable pain={pain} opponentLabel={label} /> : null}
 
           <div className="space-y-3">
@@ -357,6 +368,93 @@ function VerdictCard({
       <p className="text-muted-foreground mt-2 text-xs leading-relaxed">
         {support}
       </p>
+    </div>
+  );
+}
+
+function AttributionTable({
+  attribution,
+  opponentLabel,
+  currency,
+}: {
+  attribution: GapAttribution;
+  opponentLabel: string;
+  currency: string;
+}) {
+  const top = attribution.parts.slice(0, 8);
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-medium">Why the dollar gap</p>
+      <p className="text-muted-foreground text-xs leading-relaxed">
+        Each name’s change in month-end value versus that beginning weight
+        sitting in {opponentLabel}. Month-end snapshots miss trades, so
+        unexplained is the leftover that still adds up to the headline gap.
+      </p>
+      <div className="border-border overflow-x-auto rounded-lg border">
+        <table className="w-full min-w-[520px] text-sm">
+          <thead>
+            <tr className="bg-muted/50 border-b text-left">
+              <th className="text-muted-foreground px-3 py-2 font-medium">
+                Holding
+              </th>
+              <th className="text-muted-foreground px-3 py-2 font-medium">
+                Your P&amp;L
+              </th>
+              <th className="text-muted-foreground px-3 py-2 font-medium">
+                Same weight in {opponentLabel}
+              </th>
+              <th className="text-muted-foreground px-3 py-2 font-medium">
+                Gap
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {top.map((part) => (
+              <tr
+                key={part.id}
+                className="border-border border-b last:border-0"
+              >
+                <td className="px-3 py-2">{part.name}</td>
+                <td className="px-3 py-2 tabular-nums">
+                  {formatSignedMoney(part.youPnl, currency)}
+                </td>
+                <td className="px-3 py-2 tabular-nums">
+                  {formatSignedMoney(part.opponentPnl, currency)}
+                </td>
+                <td
+                  className={cn(
+                    "px-3 py-2 tabular-nums",
+                    deltaClass(part.contribution),
+                  )}
+                >
+                  {formatSignedMoney(part.contribution, currency)}
+                </td>
+              </tr>
+            ))}
+            <tr className="border-border border-b">
+              <td className="text-muted-foreground px-3 py-2">Unexplained</td>
+              <td className="px-3 py-2">—</td>
+              <td className="px-3 py-2">—</td>
+              <td className="px-3 py-2 tabular-nums">
+                {formatSignedMoney(attribution.unexplained, currency)}
+              </td>
+            </tr>
+            <tr>
+              <td className="px-3 py-2 font-medium">Ahead / behind</td>
+              <td className="px-3 py-2">—</td>
+              <td className="px-3 py-2">—</td>
+              <td
+                className={cn(
+                  "px-3 py-2 font-medium tabular-nums",
+                  deltaClass(attribution.dollarDelta),
+                )}
+              >
+                {formatSignedMoney(attribution.dollarDelta, currency)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

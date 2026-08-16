@@ -11,6 +11,7 @@ import {
   type BenchmarkFile,
   type OpponentComparison,
 } from "@/lib/benchmarks";
+import { attributeGap, type GapAttribution } from "@/lib/attribution";
 import { typicalMonthlyDeposits } from "@/lib/forecast";
 import {
   buildMonthlyPnLSeries,
@@ -54,6 +55,7 @@ export interface WindowedAnalysis {
   data: PortfolioData;
   comparison: OpponentComparison | null;
   pain: OpponentPain | null;
+  attribution: GapAttribution | null;
   netWorth: NetWorthSeries;
   cashFlow: CashFlowSeries;
   pnl: MonthlyPnLSeries;
@@ -132,6 +134,7 @@ export function buildWindowedAnalysis(
     data: sliced,
     comparison,
     pain: comparison ? computeOpponentPain(comparison) : null,
+    attribution: comparison ? attributeGap(sliced, comparison) : null,
     netWorth: buildNetWorthSeries(sliced, inputs.accountGroups ?? []),
     cashFlow: buildCashFlowSeries(sliced),
     pnl: buildMonthlyPnLSeries(sliced),
