@@ -130,6 +130,7 @@ export function ForecastSection({
     minPct,
     expectedPct,
     maxPct,
+    todayDollars,
   } = plan;
   const typicalText = String(typicalMonthlyDeposit);
   const amountDisplay =
@@ -138,7 +139,6 @@ export function ForecastSection({
     contributionAmount,
     typicalMonthlyDeposit,
   );
-  const [todayDollars, setTodayDollars] = useState(true);
   const [startDate, setStartDate] = useSyncedDefault(defaults.startDate);
   const [horizonYears, setHorizonYears] = useState("20");
   const [includeHistorical, setIncludeHistorical] = useState(true);
@@ -575,7 +575,9 @@ export function ForecastSection({
                 <input
                   type="checkbox"
                   checked={todayDollars}
-                  onChange={(e) => setTodayDollars(e.target.checked)}
+                  onChange={(e) =>
+                    updatePlan({ todayDollars: e.target.checked })
+                  }
                   className="size-3.5 rounded border"
                 />
                 Today&apos;s dollars

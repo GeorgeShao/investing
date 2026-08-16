@@ -30,6 +30,7 @@ export interface ForecastPlanPrefs {
   minPct: string;
   expectedPct: string;
   maxPct: string;
+  todayDollars: boolean;
 }
 
 export const DEFAULT_FORECAST_PLAN: ForecastPlanPrefs = {
@@ -43,6 +44,7 @@ export const DEFAULT_FORECAST_PLAN: ForecastPlanPrefs = {
   minPct: "3",
   expectedPct: String(PLANNING_ANNUAL_RETURN_PCT),
   maxPct: "12",
+  todayDollars: true,
 };
 
 function isFrequency(v: unknown): v is ContributionFrequency {
@@ -120,6 +122,8 @@ export function sanitizeForecastPlan(raw: unknown): ForecastPlanPrefs {
       DEFAULT_FORECAST_PLAN.expectedPct,
     ),
     maxPct: sanitizeRatePct(obj.maxPct, DEFAULT_FORECAST_PLAN.maxPct),
+    // Missing key stays on so older saved plans keep today's dollars.
+    todayDollars: obj.todayDollars !== false,
   };
 }
 

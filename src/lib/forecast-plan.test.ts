@@ -24,6 +24,7 @@ describe("sanitizeForecastPlan", () => {
         minPct: "2",
         expectedPct: "8",
         maxPct: "15",
+        todayDollars: false,
       }),
     ).toEqual({
       contributionAmount: "500",
@@ -35,6 +36,7 @@ describe("sanitizeForecastPlan", () => {
       minPct: "2",
       expectedPct: "8",
       maxPct: "15",
+      todayDollars: false,
     });
   });
 
@@ -92,6 +94,14 @@ describe("sanitizeForecastPlan", () => {
     expect(plan.minPct).toBe("3");
     expect(plan.expectedPct).toBe("7");
     expect(plan.maxPct).toBe("12");
+  });
+
+  it("defaults today's dollars on, and keeps an explicit off", () => {
+    expect(sanitizeForecastPlan({}).todayDollars).toBe(true);
+    expect(sanitizeForecastPlan({ todayDollars: false }).todayDollars).toBe(
+      false,
+    );
+    expect(DEFAULT_FORECAST_PLAN.todayDollars).toBe(true);
   });
 
   it("keeps negative and in-progress planning rates", () => {
