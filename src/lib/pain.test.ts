@@ -4,7 +4,7 @@ import { computeOpponentPain, computePathPain } from "@/lib/pain";
 import type { PortfolioData } from "@/lib/types";
 
 describe("computePathPain", () => {
-  it("measures max drawdown and time underwater on a known dip", () => {
+  it("measures max drawdown on a known dip", () => {
     const pain = computePathPain(
       [100, 110, 90, 95, 120],
       ["2024-01", "2024-02", "2024-03", "2024-04", "2024-05"],
@@ -14,9 +14,6 @@ describe("computePathPain", () => {
     expect(pain.troughValue).toBe(90);
     expect(pain.peakPeriodId).toBe("2024-02");
     expect(pain.troughPeriodId).toBe("2024-03");
-    expect(pain.underwaterMonths).toBe(2);
-    expect(pain.longestUnderwaterMonths).toBe(2);
-    expect(pain.stillUnderwater).toBe(false);
   });
 
   it("stays at 0 drawdown when the path only rises", () => {
@@ -25,34 +22,44 @@ describe("computePathPain", () => {
       ["2024-01", "2024-02", "2024-03"],
     );
     expect(pain.maxDrawdown).toBe(0);
-    expect(pain.underwaterMonths).toBe(0);
-    expect(pain.stillUnderwater).toBe(false);
   });
 
-  it("flags a path that has not recovered", () => {
+  it("keeps peak and trough when the path has not recovered", () => {
     const pain = computePathPain(
       [100, 80, 70],
       ["2024-01", "2024-02", "2024-03"],
     );
     expect(pain.maxDrawdown).toBeCloseTo(-0.3, 10);
-    expect(pain.stillUnderwater).toBe(true);
-    expect(pain.underwaterMonths).toBe(2);
+    expect(pain.peakPeriodId).toBe("2024-01");
+    expect(pain.troughPeriodId).toBe("2024-03");
   });
 
-  it("takes the worst exact 12-calendar-month return", () => {
+  it("takes the worst exact 1 / 3 / 6 / 12-calendar-month return", () => {
     const ids = [
       "2023-01",
-      "2023-06",
+      "2023-02",
+      "2023-04",
+      "2023-07",
       "2024-01",
-      "2024-06",
     ];
-    const values = [100, 150, 80, 90];
+    const values = [100, 110, 80, 70, 90];
     const pain = computePathPain(values, ids);
-    // 2023-01 → 2024-01: 80/100 − 1 = −20%
-    // 2023-06 → 2024-06: 90/150 − 1 = −40%
-    expect(pain.worst12m).toBeCloseTo(90 / 150 - 1, 10);
-    expect(pain.worst12mFromId).toBe("2023-06");
-    expect(pain.worst12mToId).toBe("2024-06");
+    // 1m: Jan→Feb +10%; only adjacent pair
+    expect(pain.worst[1].value).toBeCloseTo(110 / 100 - 1, 10);
+    expect(pain.worst[1].fromId).toBe("2023-01");
+    expect(pain.worst[1].toId).toBe("2023-02");
+    // 3m: Jan→Apr 80/100 − 1; Apr→Jul 70/80 − 1
+    expect(pain.worst[3].value).toBeCloseTo(80 / 100 - 1, 10);
+    expect(pain.worst[3].fromId).toBe("2023-01");
+    expect(pain.worst[3].toId).toBe("2023-04");
+    // 6m: Jan→Jul 70/100; Feb→? none at 6
+    expect(pain.worst[6].value).toBeCloseTo(70 / 100 - 1, 10);
+    expect(pain.worst[6].fromId).toBe("2023-01");
+    expect(pain.worst[6].toId).toBe("2023-07");
+    // 12m: Jan→Jan 90/100 − 1
+    expect(pain.worst[12].value).toBeCloseTo(90 / 100 - 1, 10);
+    expect(pain.worst[12].fromId).toBe("2023-01");
+    expect(pain.worst[12].toId).toBe("2024-01");
   });
 });
 
@@ -112,7 +119,8 @@ describe("computeOpponentPain", () => {
 
     expect(pain.youHoldings.maxDrawdown).toBeCloseTo(840 / 1200 - 1, 8);
     expect(pain.youDollars.maxDrawdown).toBeCloseTo(840 / 1200 - 1, 8);
-    expect(pain.youHoldings.stillUnderwater).toBe(true);
+    expect(pain.youHoldings.peakPeriodId).toBe("2024-02");
+    expect(pain.youHoldings.troughPeriodId).toBe("2024-03");
     expect(pain.opponentHoldings.maxDrawdown).toBeCloseTo(99 / 110 - 1, 8);
     expect(pain.youHoldings.maxDrawdown).toBeLessThan(
       pain.opponentHoldings.maxDrawdown as number,

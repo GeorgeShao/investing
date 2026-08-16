@@ -1,9 +1,18 @@
 /**
- * Drawdown, time underwater, and worst 12-month return on a path.
+ * Max drawdown and worst 1 / 3 / 6 / 12-month returns on a path.
  * Used for you vs opponent on the same windowed series.
  */
 
 import type { OpponentComparison } from "@/lib/benchmarks";
+
+export const WORST_HORIZONS = [12, 6, 3, 1] as const;
+export type WorstHorizon = (typeof WORST_HORIZONS)[number];
+
+export interface WindowReturn {
+  value: number | null;
+  fromId: string | null;
+  toId: string | null;
+}
 
 export interface PathPain {
   /** Peak-to-trough decline as a negative fraction of the peak. */
@@ -12,15 +21,8 @@ export interface PathPain {
   troughValue: number | null;
   peakPeriodId: string | null;
   troughPeriodId: string | null;
-  /** Months whose value is strictly below the running peak. */
-  underwaterMonths: number;
-  /** Longest consecutive underwater stretch (months). */
-  longestUnderwaterMonths: number;
-  stillUnderwater: boolean;
-  /** Worst exact 12-calendar-month simple return on this path. */
-  worst12m: number | null;
-  worst12mFromId: string | null;
-  worst12mToId: string | null;
+  /** Worst exact N-calendar-month simple return on this path. */
+  worst: Record<WorstHorizon, WindowReturn>;
 }
 
 export interface OpponentPain {
@@ -30,18 +32,28 @@ export interface OpponentPain {
   opponentDollars: PathPain;
 }
 
+const EMPTY_WINDOW: WindowReturn = {
+  value: null,
+  fromId: null,
+  toId: null,
+};
+
+function emptyWorst(): Record<WorstHorizon, WindowReturn> {
+  return {
+    1: { ...EMPTY_WINDOW },
+    3: { ...EMPTY_WINDOW },
+    6: { ...EMPTY_WINDOW },
+    12: { ...EMPTY_WINDOW },
+  };
+}
+
 const EMPTY: PathPain = {
   maxDrawdown: null,
   peakValue: null,
   troughValue: null,
   peakPeriodId: null,
   troughPeriodId: null,
-  underwaterMonths: 0,
-  longestUnderwaterMonths: 0,
-  stillUnderwater: false,
-  worst12m: null,
-  worst12mFromId: null,
-  worst12mToId: null,
+  worst: emptyWorst(),
 };
 
 export function monthsBetweenPeriodIds(a: string, b: string): number | null {
@@ -53,6 +65,41 @@ export function monthsBetweenPeriodIds(a: string, b: string): number | null {
   return (by - ay) * 12 + (bm - am);
 }
 
+export function worstReturnOverMonths(
+  values: Array<number | null>,
+  periodIds: string[],
+  months: number,
+): WindowReturn {
+  if (
+    !(months > 0) ||
+    values.length === 0 ||
+    values.length !== periodIds.length
+  ) {
+    return { ...EMPTY_WINDOW };
+  }
+  let value: number | null = null;
+  let fromId: string | null = null;
+  let toId: string | null = null;
+  for (let i = 0; i < values.length; i++) {
+    const end = values[i];
+    if (end === null || !Number.isFinite(end) || !(end > 0)) continue;
+    for (let j = 0; j < i; j++) {
+      const start = values[j];
+      if (start === null || !Number.isFinite(start) || !(start > 0)) continue;
+      if (monthsBetweenPeriodIds(periodIds[j], periodIds[i]) !== months) {
+        continue;
+      }
+      const r = end / start - 1;
+      if (value === null || r < value) {
+        value = r;
+        fromId = periodIds[j];
+        toId = periodIds[i];
+      }
+    }
+  }
+  return { value, fromId, toId };
+}
+
 /**
  * Pain stats for an aligned value path. Nulls are skipped for peaks;
  * an undefined month does not break the running peak.
@@ -62,7 +109,7 @@ export function computePathPain(
   periodIds: string[],
 ): PathPain {
   if (values.length === 0 || values.length !== periodIds.length) {
-    return { ...EMPTY };
+    return { ...EMPTY, worst: emptyWorst() };
   }
 
   let peak = -Infinity;
@@ -72,9 +119,6 @@ export function computePathPain(
   let ddTrough = -Infinity;
   let ddPeakId: string | null = null;
   let ddTroughId: string | null = null;
-  let underwaterMonths = 0;
-  let longest = 0;
-  let run = 0;
   let lastFinite: number | null = null;
 
   for (let i = 0; i < values.length; i++) {
@@ -84,11 +128,7 @@ export function computePathPain(
     if (v > peak) {
       peak = v;
       peakId = periodIds[i];
-      run = 0;
     } else if (peak > 0 && v < peak) {
-      underwaterMonths += 1;
-      run += 1;
-      if (run > longest) longest = run;
       const dd = v / peak - 1;
       if (dd < worstDd) {
         worstDd = dd;
@@ -97,32 +137,13 @@ export function computePathPain(
         ddPeakId = peakId;
         ddTroughId = periodIds[i];
       }
-    } else {
-      run = 0;
     }
   }
 
-  let worst12m: number | null = null;
-  let worst12mFromId: string | null = null;
-  let worst12mToId: string | null = null;
-  for (let i = 0; i < values.length; i++) {
-    const end = values[i];
-    if (end === null || !Number.isFinite(end) || !(end > 0)) continue;
-    for (let j = 0; j < i; j++) {
-      const start = values[j];
-      if (start === null || !Number.isFinite(start) || !(start > 0)) continue;
-      if (monthsBetweenPeriodIds(periodIds[j], periodIds[i]) !== 12) continue;
-      const r = end / start - 1;
-      if (worst12m === null || r < worst12m) {
-        worst12m = r;
-        worst12mFromId = periodIds[j];
-        worst12mToId = periodIds[i];
-      }
-    }
+  const worst = emptyWorst();
+  for (const months of WORST_HORIZONS) {
+    worst[months] = worstReturnOverMonths(values, periodIds, months);
   }
-
-  const stillUnderwater =
-    lastFinite !== null && peak > 0 && lastFinite < peak && worstDd < 0;
 
   return {
     maxDrawdown: worstDd < 0 ? worstDd : worstDd === 0 && peak > 0 ? 0 : null,
@@ -131,12 +152,7 @@ export function computePathPain(
       Number.isFinite(ddTrough) && ddTrough > 0 ? ddTrough : lastFinite,
     peakPeriodId: ddPeakId ?? peakId,
     troughPeriodId: ddTroughId,
-    underwaterMonths,
-    longestUnderwaterMonths: longest,
-    stillUnderwater,
-    worst12m,
-    worst12mFromId,
-    worst12mToId,
+    worst,
   };
 }
 
